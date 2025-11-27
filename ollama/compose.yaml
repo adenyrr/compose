@@ -1,0 +1,37 @@
+name: LLM # Ollama + OpenWebUI
+services:
+  ollama:    
+    container_name: ollama
+    image: ollama/ollama:latest
+    ports:
+      - 11434:11434
+    volumes:
+      - ./ollama:/root/.ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+          reservations:
+              devices:
+                  - driver: nvidia
+                    count: all
+                    capabilities:
+                        - gpu
+
+  open-webui:
+    container_name: open-webui 
+    image: ghcr.io/open-webui/open-webui:cuda
+    ports:
+        - 8085:8080
+    volumes:
+         - ./open-webui:/app/backend/data
+    env_file:
+         - .env
+    restart: always
+    deploy:
+      resources:
+          reservations:
+              devices:
+                  - driver: nvidia
+                    count: all
+                    capabilities:
+                        - gpu

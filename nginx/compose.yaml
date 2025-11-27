@@ -1,0 +1,25 @@
+name: proxy
+services:
+    swag:
+        image: lscr.io/linuxserver/swag:latest
+        container_name: swag
+        cap_add:
+        - NET_ADMIN
+        environment:
+        - PUID=1000
+        - PGID=1000
+        - TZ=${TZ}
+        - URL=${URL}
+        - VALIDATION=dns
+        - SUBDOMAINS=wildcard
+        - EXTRA_DOMAINS=${URL2}
+        - DNSPLUGIN=ovh
+        - DOCKER_MODS=linuxserver/mods:swag-dashboard|DOCKER_MODS=linuxserver/mods:swag-cloudflare-real-ip|linuxserver/mods:swag-dbip
+        - SWAG_AUTORELOAD=true
+        volumes:
+        - ./config:/config
+        ports:
+        - 443:443/tcp
+        - 443:443/udp #quic
+        - 81:81
+        restart: unless-stopped

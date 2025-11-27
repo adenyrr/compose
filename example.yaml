@@ -1,0 +1,79 @@
+# Structure typique d'un fichier docker compose au format yaml. L'indentation est STRICTE.
+# Le premier service montre les définitions les plus courantes, le second des paramètres plus spécifiques mais courants.
+
+name: # Nom de la stack
+
+services:
+
+  nom_du_service1: #Nom du premier service à installer
+
+    image: image #L'endroit où pull l'image du service, sous le format repo/image:version
+
+    env_file: .env #Le fichier contenant les variables, stack.env pour Portainer.
+
+    environment: #Pour définir les variables au sein du compose (souvent,  pas recommandé mais fonctionnel)
+      - VARIABLE=valeur 
+    
+    depends_on: #Définition des services nécessaires. Souvent, des bases de données
+      nom_du_service2:
+        condition: service_healthy #Généralement, on mettre ça pour des raisons évidentes, mais il peut varier
+
+    restart: always #Never, always, on-failure ...
+
+    ports:
+    - n:m #Où 'n' est le port hote et 'm' le port dans le conteneur. Utile qu'en mode bridge.
+
+    volumes: #Défini les endroits où les données des conteneurs seront stockées
+      - /chemin/absolu/host:/chemin/dans/conteneur #Assigne un répertoire absolu sur l'hote, pour le conteneur (ex : /media/musique)
+      - ./chemin/relatif/host:/chemin/dans/conteneur #Assigne un répertoire relatif sur l'hote, pour le conteneur (ex: ./data : les données seront dans /chemin/du/compose/data)
+      - volume:/chemin/dans/conteneur # Création d'un volume appartenant à docker. Dans ce cas, la fin du fichier doit contenir une section volumes
+
+  nom_du_service2: #On recommence pour un second conteneur qui fait la stack
+
+    build: #Lorsque l'image est à construire et n'est pas dans un répertoire
+      context: . #On peut remplacer le point par le chemin du contexte du build (prérequis, etc)
+      dockerfile: Dockerfile #Nom du dockerfile servant à build le conteneur
+
+    user: user #root, git, www ... Peut également etre un UID ou un UID:GID (ex :'1000' ou '1000:1000')
+
+    command: commande argument #Lance une commande au démarrage différente de cette présente dans le dockerfile
+    
+    healthcheck: #On verifie la santé du conteneur
+      interval: ns #Où 'n' est le nombre de secondes d'intervalles entre deux check
+      retries: n #Où 'n' est le nombre de tentatives avant de considérer le conteneur comme unhealty
+      start_period: 20s #Période durant laquelle aucun test n'est effectué après le démarrage
+      test:
+      - CMD-SHELL #On initialise le shell du conteneur
+      - commande valeur #La commande qui s'assure de l'état du conteneur. (ex : pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER})
+      timeout: ns #Où 'n' est le temps en seconde après lequel, sans réponse, la commande est considérée en échec
+
+
+
+# En cas d'utilisation d'un ou de plusieurs GPU nvidia. Le nvidia toolkit est nécéssaire (voir doc nvidia)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+
+#Si un volume docker a été défini pour utilisation, c'est ici qu'il est initialisé. Inutile en cas d'utilisation d'un répertoire.
+volumes:
+  nom_du_volume1:
+    driver: local
+  nom_du_volume2:
+    driver: local
+  ...
+
+
+# Deux commandes utiles :
+
+Générer un mot de passe aléatoire pour la variable $SECRET:
+
+$SECRET=$(openssl rand -base64 36 | tr -d '\n')
+
+Healtcheck d'une base de donnée postgresql :
+
+pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}

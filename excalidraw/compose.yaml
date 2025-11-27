@@ -1,0 +1,14 @@
+name: excalidraw
+services:
+    excalidraw:
+        image: 'docker.io/excalidraw/excalidraw:latest'
+        container_name: excalidraw
+        ports:
+            - '8085:80'
+        environment:
+            - TZ=Europe/Brussels
+            - PUID=1000
+            - PGID=1000
+        volumes:
+            - './data:/app/web'
+        restart: always
