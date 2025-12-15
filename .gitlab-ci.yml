@@ -1,0 +1,2 @@
+include:
+  - component: $CI_SERVER_FQDN/components/secret-detection/secret-detection@2.2.0
