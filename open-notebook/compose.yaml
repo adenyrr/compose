@@ -8,7 +8,7 @@ services:
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API}
       - OLLAMA_API_BASE="http://${IP_OLLAMA}:11434"
-      - API_URL=http://${IP_ON}:5055
+      # API_URL=http://${IP_ON}:5055
       - SURREAL_URL=ws://localhost:8000/rpc
       - SURREAL_USER=${PG_USER}
       - SURREAL_PASSWORD=${PG_PASS}
