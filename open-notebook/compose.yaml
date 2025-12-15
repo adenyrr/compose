@@ -1,0 +1,20 @@
+name: open-notebook
+services:
+  open_notebook:
+    image: lfnovo/open_notebook:v1-latest-single
+    ports:
+      - "8502:8502"
+      - "5055:5055"
+    environment:
+      - GOOGLE_API_KEY==AIzaSyD7XJM96QOaTKvDxF0yrA-U8lR97JV9ppw
+      - OLLAMA_API_BASE="http://192.168.50.5:11434"
+      - API_URL=http://192.168.50.5:5055
+      - SURREAL_URL=ws://localhost:8000/rpc
+      - SURREAL_USER=${PG_USER}
+      - SURREAL_PASSWORD=${PG_PASS}
+      - SURREAL_NAMESPACE=open_notebook
+      - SURREAL_DATABASE=production
+    volumes:
+      - ./notebook_data:/app/data
+      - ./surreal_data:/mydata
+    restart: always
