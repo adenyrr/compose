@@ -38,5 +38,5 @@ networks:
   searxng:
 
 volumes:
-  valkey-data2:
+  valkey-data:
   searxng-data:
