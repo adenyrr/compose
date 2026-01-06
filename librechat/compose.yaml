@@ -1,4 +1,4 @@
-name: librechat
+name: 
 services:
   api:
     container_name: LibreChat
@@ -20,8 +20,8 @@ services:
       - RAG_API_URL=http://rag_api:${RAG_PORT:-8000}
     volumes:
       - type: bind
-        source: ./app
-        target: /app
+        source: ./.env
+        target: /app/.env
       - ./images:/app/client/public/images
       - ./uploads:/app/uploads
       - ./logs:/app/logs
