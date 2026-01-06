@@ -1,4 +1,4 @@
-name: 
+name: librechat
 services:
   api:
     container_name: LibreChat
