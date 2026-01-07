@@ -19,22 +19,42 @@ interface:
  
 registration:
   socialLogins: ["openid"]
+
+transactions:
+  enabled: false
  
+mcpServers:
+  Time: #
+    type: stdio
+    command: uvx
+    args:
+      - mcp-server-time
+    startup: false
+
 endpoints:
+
+  agents:
+    recursionLimit: 50
+    maxRecursionLimit: 100
+    disableBuilder: false
+    # (optional) Agent Capabilities available to all users. Omit the ones you wish to exclude. Defaults to list below.
+    # capabilities: ["execute_code", "file_search", "actions", "tools", "artifacts", "context", "ocr", "chain", "web_search"]
+    # (optional) File citation configuration for file_search capability
+    maxCitations: 30          # Maximum total citations in responses (1-50)
+    maxCitationsPerFile: 7    # Maximum citations from each file (1-10)
+    minRelevanceScore: 0.45
+
   custom:
-  
-    # Mistral AI API
+      # Mistral AI API
     - name: "Mistral"
       apiKey: "${MISTRAL_API_KEY}"
       baseURL: "https://api.mistral.ai/v1"
       models:
         default: [
-          "mistral-tiny",
-          "mistral-small",
-          "mistral-medium",
-          "mistral-large-latest"
+          "magistral-medium-latest",
+          "devstral-latest"
           ]
-        fetch: true
+        fetch: false
       titleConvo: true
       titleModel: "mistral-tiny"
       modelDisplayLabel: "Mistral"
@@ -45,12 +65,16 @@ endpoints:
       apiKey: "${OPENROUTER_KEY}"
       baseURL: "https://openrouter.ai/api/v1"
       models:
-        default: ["openai/gpt-3.5-turbo"]
-        fetch: true
+        default: [
+          "openai/gpt-oss-120b",
+          "google/gemma-2-27b-it",
+          "deepseek/deepseek-v3.2"
+          ]
+        fetch: false
       titleConvo: true
-      titleModel: "gpt-3.5-turbo"
-      summarize: false
-      summaryModel: "gpt-3.5-turbo"
+      titleModel: "openai/gpt-oss-20b"
+      summarize: true
+      summaryModel: "openai/gpt-oss-20b"
       forcePrompt: false
       modelDisplayLabel: "OpenRouter"
  
@@ -60,17 +84,18 @@ endpoints:
       baseURL: "https://api.perplexity.ai/"
       models:
         default: [
-          "mistral-7b-instruct",
-          "sonar-small-chat",
           "sonar-small-online",
-          "sonar-medium-chat",
-          "sonar-medium-online"
           ]
-        fetch: false # fetching list of models is not supported
+        fetch: false
       titleConvo: true
       titleModel: "sonar-medium-chat"
-      summarize: false
+      summarize: true
       summaryModel: "sonar-medium-chat"
       forcePrompt: false
       dropParams: ["stop", "frequency_penalty"]
       modelDisplayLabel: "Perplexity"
+
+ocr:
+  mistralModel: "mistral-ocr-latest"
+  apiKey: "${MISTRAL_API_KEY}"
+  strategy: "mistral_ocr"
