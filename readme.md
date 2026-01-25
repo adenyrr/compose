@@ -45,6 +45,14 @@ Docker compose pour déploiement. Chaque service est déployé via [Komo.do](htt
 - Site du projet: [Wazuh.com](https://wazuh.com/)
 - Code source: [GH Wazuh](https://github.com/Wazuh/Wazuh)
 
+### Nginx (Swag)
+
+    Nginx est utilisé comme reverse-proxy et gestionnaire de certificats. Swag l'améliore avec la gestion des certificats et divers mods.
+
+- Fichiers: [`nginx/compose.yaml`](nginx/compose.yaml)
+- Tutoriels: [SWAG](https://docu.adenyrr.me/reseau/swag.html)
+- Site du projet: [nginx](https://nginx.org/)
+- Code source: [GH Nginx](https://github.com/nginx/nginx)
 
 ## Stack cloud :
 
@@ -143,3 +151,86 @@ Docker compose pour déploiement. Chaque service est déployé via [Komo.do](htt
 - Tutoriels: [become.sh](https://docs.become.sh/services/ollama/)
 - Site du projet: [Ollama.com](https://ollama.com/) && [OpenWebUI.com](https://openwebui.com/)
 - Code source: [GH Ollama](https://github.com/ollama/ollama) && [GH OpenWebUI](https://github.com/open-webui/open-webui)
+
+## Autres services
+
+### Excalidraw
+
+    Excalidraw fournit un tableau blanc collaboratif simple et rapide.
+
+- Fichiers: [`excalidraw/compose.yaml`](excalidraw/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: [Excalidraw](https://excalidraw.com/)
+- Code source: [GH Excalidraw](https://github.com/excalidraw/excalidraw)
+
+### LibreChat
+
+    LibreChat propose une interface self-hosted pour LLMs et chatbots.
+
+- Fichiers: [`librechat/compose.yaml`](librechat/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
+
+### SearxNG
+
+    SearxNG est un méta-moteur de recherche respectueux de la vie privée.
+
+- Fichiers: [`searxng/compose.yaml`](searxng/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: [SearxNG](https://searx.github.io/searxng/)
+- Code source: [GH SearxNG](https://github.com/searxng/searxng)
+
+### Open Notebook
+
+    Environnement pour notebooks et outils pédagogiques.
+
+- Fichiers: [`open-notebook/compose.yaml`](open-notebook/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
+
+### Donetick
+
+    Donetick est un outil de gestion de tâches léger.
+
+- Fichiers: [`donetick/compose.yaml`](donetick/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
+
+### Zipline
+
+    Zipline regroupe des utilitaires divers pour l'infrastructure.
+
+- Fichiers: [`zipline/compose.yaml`](zipline/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
+
+### Statping-NG
+
+    Statping-NG permet de surveiller la disponibilité et latence des services.
+
+- Fichiers: [`statping-ng/compose.yaml`](statping-ng/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
+
+### Affine
+
+    Affine est une application (ex: gestion de notes/collaboration) incluse pour déploiement.
+
+- Fichiers: [`affine/compose.yaml`](affine/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
+
+### Actual
+
+    Répertoire d'exemples ou services auxiliaires ("actual").
+
+- Fichiers: [`actual/compose.yaml`](actual/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
