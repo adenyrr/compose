@@ -11,11 +11,9 @@ services:
       - DOCKER_STEPCA_INIT_DNS_NAMES=${STEP_CA_DNS}
       - DOCKER_STEPCA_INIT_PROVISIONER_NAME=${STEP_PROVISIONER_NAME}
       - DOCKER_STEPCA_INIT_ADMIN_SUBJECT=${STEP_ADMIN_EMAIL}
-      - DOCKER_STEPCA_INIT_PASSWORD_FILE=/run/secrets/ca_password
+      - DOCKER_STEPCA_INIT_PASSWORD=${STEP_CA_PASSWORD}
       - DOCKER_STEPCA_INIT_ACME=true
       - DOCKER_STEPCA_INIT_SSH=true  # Support SSH
-    secrets:
-      - ca_password
     volumes:
       - step-ca-data:/home/step
       - ./config:/home/step/config  # Pour éditer la config facilement
@@ -76,10 +74,6 @@ services:
       - step-internal
     depends_on:
       - nginx
-
-secrets:
-  ca_password:
-    file: ./secrets/ca_password.txt
 
 networks:
   step-internal:
