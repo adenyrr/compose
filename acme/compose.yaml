@@ -16,7 +16,6 @@ services:
       - DOCKER_STEPCA_INIT_SSH=true  # Support SSH
     volumes:
       - step-ca-data:/home/step
-      - ./config:/home/step/config  # Pour éditer la config facilement
     networks:
       - step-internal
     security_opt:
