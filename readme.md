@@ -18,7 +18,9 @@
     - [Immich](#immich)
     - [Vaultwarden](#vaultwarden)
     - [Actual](#actual)
+    - [Alexandrie](#alexandrie)
     - [Opencloud](#opencloud)
+    - [Kurrier](#kurrier)
   - [Stack monitoring](#stack-monitoring)
     - [Ntfy](#ntfy)
     - [Plausible](#plausible)
@@ -54,25 +56,39 @@ Docker compose pour déploiement. Chaque service est déployé via [Komo.do](htt
 
 ### Gitlab
 
-    AdGuard est un service de DNS complet avec GUI, blocages, réécritures DNS. Supporte DoH, DoT ou encore Quic.
+    Gitlab est un service de forge GIT alternative à github.
 
-- Fichiers: [`adguard/compose.yaml`](adguard/compose.yaml)
+- Fichiers: [`gitlab/compose.yaml`](gitlab/compose.yaml)
 - Tutoriels: SOON
-- Site du projet: [AdGuard.com](https://adguard.com/fr/adguard-home/overview.html)
-- Code source: [GH AdGuard](https://github.com/AdguardTeam/AdGuardHome)
+- Site du projet: [AGitlab.com](https://gitlab.com/adenyrr)
+- Code source: [Gitlab](https://gitlab.com/gitlab-org/gitlab)
 
 ### Komodo
 
-    AdGuard est un service de DNS complet avec GUI, blocages, réécritures DNS. Supporte DoH, DoT ou encore Quic.
+    Komodo est un service de déploiement de conteneurs à la GitOps.
 
-- Fichiers: [`adguard/compose.yaml`](adguard/compose.yaml)
+- Fichiers: [`komodo/compose.yaml`](komodo/compose.yaml)
 - Tutoriels: SOON
-- Site du projet: [AdGuard.com](https://adguard.com/fr/adguard-home/overview.html)
-- Code source: [GH AdGuard](https://github.com/AdguardTeam/AdGuardHome)
+- Site du projet: [Komo.do](https://komo.do)
+- Code source: [GH Komodo](https://github.com/moghtech/komodo)
 
 ### Semaphore
 
+    SemaphoreUI permet de lancer des scripts ansible, terraform ou opentofu.
+
+- Fichiers: [`semaphore/compose.yaml`](semaphore/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: [Komo.do](https://komo.do)
+- Code source: [GH AdGuard](https://github.com/moghtech/komodo)
+
 ### Termix 
+
+    Termix est un utilitaire de multiples connexions SSH
+
+- Fichiers: [`termix/compose.yaml`](termix/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: [Termix.site](https://termix.site)
+- Code source: [GH Termix](https://github.com/Termix-SSH/Termix)
 
 ## Stack réseau :
 
@@ -97,9 +113,30 @@ Docker compose pour déploiement. Chaque service est déployé via [Komo.do](htt
 
 ### ACME (smallstep)
 
+    ACME fourni des certificats internes et un endpoint ACME pour la fourniture automatisée de certificats
+
+- Fichiers: [`acme/compose.yaml`](acme/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: [smallstep.com](https://smallstep.com/)
+- Code source: [GH Smallstep](https://github.com/smallstep)
+
 ### Scanopy
 
+    Scanopy permet de diagrammer son réseau local
+
+- Fichiers: [`scanopy/compose.yaml`](scanopy/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: [Scanopy.net](https://scanopy.net)
+- Code source: [GH Scanopy](https://github.com/scanopy/scanopy)
+
 ### Speedtest
+
+    Speedtest exterieur periodique avec suivi complet des statistiques
+
+- Fichiers: [`speedtest/compose.yaml`](speedtest/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: [Speedtest-Tracker.dev](https://docs.speedtest-tracker.dev/)
+- Code source: [GH SpeedTest](github.com/alexjustesen/speedtest-tracker)
 
 ## Stack cloud :
 
@@ -139,8 +176,32 @@ Docker compose pour déploiement. Chaque service est déployé via [Komo.do](htt
 - Site du projet: SOON
 - Code source: SOON
 
+### Alexandrie
+
+    Application de prise de notes sous format markdown avec PWA.
+
+- Fichiers: [`alexandrie/compose.yaml`](alexandrie/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: [Alexandrie-hub.fr](https://alexandrie-hub.fr/)
+- Code source: [GH Alexandrie](https://github.com/Smaug6739/Alexandrie)
 
 ### Opencloud
+
+    Gestion de fichiers, synchronisation, répertoires distants ...
+
+- Fichiers: [`opencloud/compose.yaml`](opencloud/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: [OpenCloud.eu](https://opencloud.eu)
+- Code source: [GH OpenCloud](https://github.com/opencloud-eu/opencloud)
+
+### Kurrier
+
+    Kurrier est un service de gestion et d'envoi de messages (emails/notifications) destiné aux applications self-hosted, fournissant relais, templates et suivi des envois.
+
+- Fichiers: [`kurrier/compose.yaml`](kurrier/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: [Kurrier.org](https://www.kurrier.org/)
+- Code source: [GH Kurrier](https://github.com/kurrier-org/kurrier)
 
 ## Stack monitoring
 
@@ -173,7 +234,21 @@ Docker compose pour déploiement. Chaque service est déployé via [Komo.do](htt
 
 ### Prometheus
 
+    Prometheus est un système de surveillance et de collecte de métriques largement utilisé pour le monitoring d'infrastructures et d'applications.
+
+- Fichiers: [`prometheus/compose.yaml`](prometheus/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: [Prometheus.io](https://prometheus.io/)
+- Code source: [GH Prometheus](https://github.com/prometheus/prometheus)
+
 ### Promere
+
+    Interface visuelle légère de gestion d'environnements basés sur prometheus.
+
+- Fichiers: [`promere/compose.yaml`](promere/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: [GH Promere](https://github.com/Leumas-LSN/promere-prometheus-manager)
 
 ## Stack médias :
 
@@ -198,11 +273,39 @@ Docker compose pour déploiement. Chaque service est déployé via [Komo.do](htt
 
 ### Qui
 
+    Qui est une surcouche à qbittorrent
+
+- Fichiers: [`qui/compose.yaml`](qui/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
+
 ### Tracearr
+
+    Tracearr traque les connexions utilisateurs sur plex, jellyfin, ...
+
+- Fichiers: [`tracearr/compose.yaml`](tracearr/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
 
 ### jellystats
 
+    Jellystats collecte et présente des statistiques d'utilisation pour Jellyfin et services médias associés.
+
+- Fichiers: [`jellystats/compose.yaml`](jellystats/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
+
 ### Jellyserr
+
+    Jellyserr fournit des outils complémentaires pour Jellyfin (notifications, rapports d'erreurs, intégrations externes).
+
+- Fichiers: [`jellyserr/compose.yaml`](jellyserr/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
 
 ## Stack LLM :
 
@@ -226,6 +329,13 @@ Docker compose pour déploiement. Chaque service est déployé via [Komo.do](htt
 
 ### N8n
 
+    n8n est un outil d'automatisation et d'orchestration de workflows visuels (intégration d'APIs, transformations, automatisations cron).
+
+- Fichiers: [`n8n/compose.yaml`](n8n/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: [n8n.io](https://n8n.io/)
+- Code source: [GH n8n](https://github.com/n8n-io/n8n)
+
 ## Stack frontend
 
 ### Linkwarden
@@ -248,6 +358,13 @@ Docker compose pour déploiement. Chaque service est déployé via [Komo.do](htt
 
 ### Wisherr
 
+    Wisherr est une application frontend légère pour gérer des listes de souhaits, favoris ou listes d'achets.
+
+- Fichiers: [`wisherr/compose.yaml`](wisherr/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
+
 ### Donetick
 
     Donetick est un outil de gestion de tâches léger.
@@ -258,6 +375,13 @@ Docker compose pour déploiement. Chaque service est déployé via [Komo.do](htt
 - Code source: SOON
 
 ### Gethompage
+
+    Gethompage est une petite application de génération/gestion de pages d'accueil personnelles ou de landing pages simples.
+
+- Fichiers: [`gethomepage/compose.yaml`](gethomepage/compose.yaml)
+- Tutoriels: SOON
+- Site du projet: SOON
+- Code source: SOON
 
 ## Autres services
 
