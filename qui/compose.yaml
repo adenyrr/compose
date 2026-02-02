@@ -7,4 +7,4 @@ services:
       - "7476:7476"
     volumes:
       - ./qui:/config
-      - ${TORRENTS_LOCATION}:/data/torrents
+      #- ${TORRENTS_LOCATION}:/data/torrents
