@@ -278,7 +278,7 @@ Docker compose pour déploiement. Chaque service est déployé via [Komo.do](htt
 - Fichiers: [`qui/compose.yaml`](qui/compose.yaml)
 - Tutoriels: SOON
 - Site du projet: SOON
-- Code source: SOON
+- Code source: 
 
 ### Tracearr
 
