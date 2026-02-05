@@ -10,6 +10,7 @@ services:
       - "443:443"
     environment:
       - TZ=Europe/Brussels
+      - LEGO_CA_CERTIFICATES=/step-ca-root/root_ca.crt
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-data:/letsencrypt
