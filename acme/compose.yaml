@@ -57,7 +57,7 @@ services:
     restart: unless-stopped
     environment:
       - DOCKER_STEPCA_INIT_NAME=${STEP_CA_NAME}
-      - DOCKER_STEPCA_INIT_DNS_NAMES=${STEP_CA_DNS}
+      - DOCKER_STEPCA_INIT_DNS_NAMES=${STEP_CA_DNS},step-ca,localhost
       - DOCKER_STEPCA_INIT_PROVISIONER_NAME=${STEP_PROVISIONER_NAME}
       - DOCKER_STEPCA_INIT_ADMIN_SUBJECT=${STEP_ADMIN_EMAIL}
       - DOCKER_STEPCA_INIT_PASSWORD=${STEP_CA_PASSWORD}
@@ -86,7 +86,7 @@ services:
     labels:
       # Traefik pour step-ca
       - "traefik.enable=true"
-      - "traefik.http.routers.step-ca.rule=Host(`acme.mk.internal`)"
+      - "traefik.http.routers.step-ca.rule=Host(`${STEP_CA_DNS}`)"
       - "traefik.http.routers.step-ca.entrypoints=websecure"
       - "traefik.http.routers.step-ca.tls=true"
       - "traefik.http.routers.step-ca.tls.certresolver=stepca"
