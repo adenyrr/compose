@@ -73,7 +73,7 @@ services:
     tmpfs:
       - /tmp
     healthcheck:
-      test: ["CMD", "step", "ca", "health"]
+      test: ["CMD", "step", "ca", "health", "--ca-url=https://localhost:9000", "--root=/home/step/certs/root_ca.crt"]
       interval: 30s
       timeout: 10s
       retries: 3
