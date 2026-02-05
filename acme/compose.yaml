@@ -1,22 +1,72 @@
-name: step-ca
 services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - TZ=Europe/Brussels
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-data:/letsencrypt
+      - traefik-certs:/certs
+    command:
+      # Pas de dashboard
+      - --api.dashboard=false
+      
+      # Providers
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik
+      
+      # Entrypoints
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      
+      # Redirection HTTP vers HTTPS
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      
+      # Configuration ACME avec step-ca
+      - --certificatesresolvers.stepca.acme.email=${STEP_ADMIN_EMAIL}
+      - --certificatesresolvers.stepca.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.stepca.acme.caserver=https://step-ca:9000/acme/${STEP_PROVISIONER_NAME}/directory
+      - --certificatesresolvers.stepca.acme.httpchallenge=true
+      - --certificatesresolvers.stepca.acme.httpchallenge.entrypoint=web
+      
+      # Accepter les certificats auto-signés de step-ca (pour l'initialisation)
+      - --serversTransport.insecureSkipVerify=true
+      
+      # Logs
+      - --log.level=INFO
+      - --accesslog=true
+    networks:
+      - traefik
+      - step-internal
+    depends_on:
+      step-ca:
+        condition: service_healthy
+
   step-ca:
     image: smallstep/step-ca:latest
     container_name: step-ca
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:9000:9000"  # Bind localhost uniquement
     environment:
       - DOCKER_STEPCA_INIT_NAME=${STEP_CA_NAME}
-      - DOCKER_STEPCA_INIT_DNS_NAMES=${STEP_CA_DNS}
+      - DOCKER_STEPCA_INIT_DNS_NAMES=acme.mk.internal,step-ca,${STEP_CA_DNS}
       - DOCKER_STEPCA_INIT_PROVISIONER_NAME=${STEP_PROVISIONER_NAME}
       - DOCKER_STEPCA_INIT_ADMIN_SUBJECT=${STEP_ADMIN_EMAIL}
       - DOCKER_STEPCA_INIT_PASSWORD=${STEP_CA_PASSWORD}
       - DOCKER_STEPCA_INIT_ACME=true
-      - DOCKER_STEPCA_INIT_SSH=true  # Support SSH
+      - DOCKER_STEPCA_INIT_SSH=true
     volumes:
       - step-ca-data:/home/step
     networks:
+      - traefik
       - step-internal
     security_opt:
       - no-new-privileges:true
@@ -34,47 +84,19 @@ services:
         max-size: "10m"
         max-file: "3"
     labels:
-      - "prometheus.scrape=true"
-      - "prometheus.port=9000"
-      - "prometheus.path=/metrics"
-
-  nginx:
-    image: nginx:alpine
-    container_name: step-ca-proxy
-    restart: unless-stopped
-    ports:
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certs:/etc/nginx/certs:ro
-      - nginx-logs:/var/log/nginx
-    networks:
-      - step-internal
-    depends_on:
-      - step-ca
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Exporter pour Prometheus
-  nginx-exporter:
-    image: nginx/nginx-prometheus-exporter:latest
-    container_name: step-ca-metrics
-    restart: unless-stopped
-    command:
-      - -nginx.scrape-uri=http://nginx:8080/stub_status
-    ports:
-      - "127.0.0.1:9113:9113"
-    networks:
-      - step-internal
-    depends_on:
-      - nginx
+      # Traefik pour step-ca
+      - "traefik.enable=true"
+      - "traefik.http.routers.step-ca.rule=Host(`acme.mk.internal`)"
+      - "traefik.http.routers.step-ca.entrypoints=websecure"
+      - "traefik.http.routers.step-ca.tls=true"
+      - "traefik.http.routers.step-ca.tls.certresolver=stepca"
+      - "traefik.http.services.step-ca.loadbalancer.server.port=9000"
+      
 
 networks:
+  traefik:
+    driver: bridge
+    name: traefik
   step-internal:
     driver: bridge
     ipam:
@@ -84,5 +106,7 @@ networks:
 volumes:
   step-ca-data:
     driver: local
-  nginx-logs:
+  traefik-data:
+    driver: local
+  traefik-certs:
     driver: local
