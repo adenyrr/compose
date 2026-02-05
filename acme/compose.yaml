@@ -14,7 +14,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-data:/letsencrypt
-      - traefik-certs:/certs
+      - step-ca-data:/step-ca-root:ro
     command:
       # Pas de dashboard
       - --api.dashboard=false
