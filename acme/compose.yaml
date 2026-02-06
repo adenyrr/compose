@@ -1,57 +1,4 @@
 services:
-  traefik:
-    image: traefik:v2.11
-    container_name: traefik
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      - TZ=Europe/Brussels
-      - LEGO_CA_CERTIFICATES=/step-ca-root/root_ca.crt
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik-data:/letsencrypt
-      - step-ca-data:/step-ca-root:ro
-    command:
-      # Pas de dashboard
-      - --api.dashboard=false
-      
-      # Providers
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=traefik
-      
-      # Entrypoints
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      
-      # Redirection HTTP vers HTTPS
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      
-      # Configuration ACME avec step-ca
-      - --certificatesresolvers.stepca.acme.email=${STEP_ADMIN_EMAIL}
-      - --certificatesresolvers.stepca.acme.storage=/letsencrypt/acme.json
-      - --certificatesresolvers.stepca.acme.caserver=https://step-ca:9000/acme/${STEP_PROVISIONER_NAME}/directory
-      - --certificatesresolvers.stepca.acme.httpchallenge=true
-      - --certificatesresolvers.stepca.acme.httpchallenge.entrypoint=web
-      
-      # Accepter les certificats auto-signés de step-ca (pour l'initialisation)
-      - --serversTransport.insecureSkipVerify=true
-      
-      # Logs
-      - --log.level=INFO
-      - --accesslog=true
-    networks:
-      - traefik
-      - step-internal
-    depends_on:
-      step-ca:
-        condition: service_healthy
-
   step-ca:
     image: smallstep/step-ca:latest
     container_name: step-ca
@@ -66,8 +13,9 @@ services:
       - DOCKER_STEPCA_INIT_SSH=true
     volumes:
       - step-ca-data:/home/step
+    ports:
+      - "443:9000"
     networks:
-      - traefik
       - step-internal
     security_opt:
       - no-new-privileges:true
@@ -84,20 +32,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    labels:
-      # Traefik pour step-ca
-      - "traefik.enable=true"
-      - "traefik.http.routers.step-ca.rule=Host(`${STEP_CA_DNS}`)"
-      - "traefik.http.routers.step-ca.entrypoints=websecure"
-      - "traefik.http.routers.step-ca.tls=true"
-      - "traefik.http.routers.step-ca.tls.certresolver=stepca"
-      - "traefik.http.services.step-ca.loadbalancer.server.port=9000"
-      
 
 networks:
-  traefik:
-    driver: bridge
-    name: traefik
   step-internal:
     driver: bridge
     ipam:
@@ -106,8 +42,4 @@ networks:
 
 volumes:
   step-ca-data:
-    driver: local
-  traefik-data:
-    driver: local
-  traefik-certs:
     driver: local
