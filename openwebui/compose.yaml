@@ -1,4 +1,4 @@
-name: LLM # OpenWebUI
+name: llm-openwebui
 
 services:
   open-webui:
@@ -10,23 +10,34 @@ services:
       - open-webui:/app/backend/data
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
     environment:
-      DATABASE_URL: "postgresql://openwebui:changeme_secure_password@postgres:5432/openwebui"
+      # Database
+      DATABASE_URL: "postgresql://${PG_USER:-openwebui}:${PG_PASS}@postgres:5432/openwebui"
       DATABASE_POOL_SIZE: "15"
       DATABASE_POOL_MAX_OVERFLOW: "20"
       DATABASE_ENABLE_SESSION_SHARING: "true"
+      
+      # Vector DB
       VECTOR_DB: "qdrant"
       QDRANT_URI: "http://qdrant:6333"
       ENABLE_QDRANT_MULTITENANCY_MODE: "true"
+      
+      # Cache
       REDIS_URL: "redis://redis:6379/0"
-      THREAD_POOL_SIZE: "2000"
-      ENABLE_REALTIME_CHAT_SAVE: "false"
-      CHAT_RESPONSE_STREAM_DELTA_CHUNK_SIZE: "7"
       ENABLE_BASE_MODELS_CACHE: "true"
       MODELS_CACHE_TTL: "300"
       ENABLE_QUERIES_CACHE: "true"
+      
+      # Performance
+      THREAD_POOL_SIZE: "2000"
+      ENABLE_REALTIME_CHAT_SAVE: "false"
+      CHAT_RESPONSE_STREAM_DELTA_CHUNK_SIZE: "7"
+      
+      # RAG
       RAG_SYSTEM_CONTEXT: "true"
       CHUNK_MIN_SIZE_TARGET: "1000"
       TIKA_SERVER_URL: "http://tika:9998"
+      
+      # Features
       ENABLE_IMAGE_GENERATION: "false"
       ENABLE_CODE_INTERPRETER: "true"
       ENABLE_AUTOCOMPLETE_GENERATION: "false"
@@ -34,12 +45,12 @@ services:
       ENABLE_TITLE_GENERATION: "true"
       ENABLE_TAGS_GENERATION: "true"
     cap_add: 
-    - SYS_ADMIN
-    - SYS_CHROOT
-    - SYS_PTRACE
-    - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_CHROOT
+      - SYS_PTRACE
+      - NET_ADMIN
     security_opt:
-    - apparmor:unconfined      
+      - apparmor:unconfined      
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,6 +58,8 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      tika:
+        condition: service_started
     restart: always
     networks:
       - llm-network
@@ -56,28 +69,30 @@ services:
     container_name: openwebui-postgres
     environment:
       POSTGRES_DB: openwebui
-      POSTGRES_USER: ${PG_USER}
+      POSTGRES_USER: ${PG_USER:-openwebui}
       POSTGRES_PASSWORD: ${PG_PASS}
-      # Performance tuning
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # Ports exposés uniquement si accès externe nécessaire
+    # ports:
+    #   - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U openwebui -d openwebui"]
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-openwebui} -d openwebui"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: always
     networks:
       - llm-network
+
   qdrant:
     image: qdrant/qdrant:latest
     container_name: openwebui-qdrant
-    ports:
-      - "6333:6333"
-      - "6334:6334"
+    # Ports exposés uniquement si accès externe nécessaire
+    # ports:
+    #   - "6333:6333"
+    #   - "6334:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
     environment:
@@ -90,8 +105,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: openwebui-redis
-    ports:
-      - "6379:6379"
+    # Ports exposés uniquement si accès externe nécessaire
+    # ports:
+    #   - "6379:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
@@ -111,7 +127,7 @@ services:
       - "3722:8000"
     command: ["mcpo", "--config", "/config/mcpo_config.json"]
     volumes:
-      - ./mcpo_config.json:/config/mcpo_config.json
+      - ./mcpo_config.json:/config/mcpo_config.json:ro
     restart: always
     networks:
       - llm-network
@@ -119,8 +135,9 @@ services:
   tika:
     image: apache/tika:latest-full
     container_name: tika
-    ports:
-      - "9998:9998"
+    # Port interne uniquement
+    # ports:
+    #   - "9998:9998"
     restart: unless-stopped
     networks:
       - llm-network
