@@ -20,6 +20,7 @@ services:
       VECTOR_DB: "qdrant"
       QDRANT_URI: "http://qdrant:6333"
       ENABLE_QDRANT_MULTITENANCY_MODE: "true"
+      QDRANT_API_KEY: "${QDRANT_API_KEY}"
       
       # Cache
       REDIS_URL: "redis://redis:6379/0"
