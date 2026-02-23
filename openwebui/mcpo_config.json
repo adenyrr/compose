@@ -7,5 +7,6 @@
     "time": {
       "command": "uvx",
       "args": ["mcp-server-time", "--local-timezone=Europe/Brussels"]
+    }
   }
 }
