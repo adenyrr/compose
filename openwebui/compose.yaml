@@ -148,6 +148,7 @@ services:
       - mcp_sqlite:/data/sqlite
       - mcp_uploads:/data/uploads
       - mcp_exports:/data/exports
+      - mcp_arxiv:/data/arxiv
     restart: always
     networks:
       - llm-network
