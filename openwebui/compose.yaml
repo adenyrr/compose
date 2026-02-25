@@ -9,6 +9,7 @@ services:
     volumes:
       - open-webui:/app/backend/data
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - mcp_uploads:/app/backend/data/uploads
     environment:
       # Database
       DATABASE_URL: "postgresql://${PG_USER:-openwebui}:${PG_PASS}@postgres:5432/openwebui"
@@ -47,6 +48,11 @@ services:
       ENABLE_TITLE_GENERATION: "true"
       ENABLE_TAGS_GENERATION: "true"
 
+      # MCPO
+
+      ENABLE_MCP_SERVERS: "true"
+      MCP_SERVER_BASE_URL: "http://mcpo:8000"
+
       #SSO
       ENABLE_OAUTH_SIGNUP: ${ENABLE_OAUTH_SIGNUP}
       OAUTH_MERGE_ACCOUNTS_BY_EMAIL: ${OAUTH_MERGE_ACCOUNTS_BY_EMAIL}
@@ -58,13 +64,8 @@ services:
       OPENID_REDIRECT_URI: ${OPENID_REDIRECT_URI}
       ENABLE_LOGIN_FORM: ${ENABLE_LOGIN_FORM}
 
-    cap_add: 
-      - SYS_ADMIN
-      - SYS_CHROOT
-      - SYS_PTRACE
-      - NET_ADMIN
     security_opt:
-      - apparmor:unconfined      
+      - no-new-privileges:true     
     depends_on:
       postgres:
         condition: service_healthy
@@ -142,6 +143,11 @@ services:
     command: ["mcpo", "--config", "/config/mcpo_config.json"]
     volumes:
       - ./mcpo_config.json:/config/mcpo_config.json:ro
+      # Volumes de données MCP :
+      - mcp_memory:/data/memory
+      - mcp_sqlite:/data/sqlite
+      - mcp_uploads:/data/uploads
+      - mcp_exports:/data/exports
     restart: always
     networks:
       - llm-network
@@ -164,6 +170,14 @@ volumes:
   qdrant_storage:
     driver: local
   redis_data:
+    driver: local
+  mcp_memory:
+    driver: local
+  mcp_sqlite:
+    driver: local
+  mcp_uploads:
+    driver: local
+  mcp_exports:
     driver: local
 
 networks:
