@@ -2,31 +2,37 @@
   "mcpServers": {
 
     "fetch": {
-      "_comment": "Récupère le contenu HTML/texte de n'importe quelle URL. Utile pour lire des articles, guidelines cliniques, ressources pédagogiques en ligne.",
+      "_comment": "Récupère le contenu HTML/texte de n'importe quelle URL. Sert aussi de repli pour interroger les APIs REST publiques (OpenAlex, Crossref, openFDA, ClinicalTrials).",
       "command": "uvx",
       "args": ["mcp-server-fetch"]
     },
 
     "time": {
-      "_comment": "Fournit l'heure et la date courante avec gestion des fuseaux horaires. Utile pour horodater des notes, calculer des durées de traitement.",
+      "_comment": "Heure et date courante avec gestion des fuseaux horaires. Utile pour horodater des notes, calculer des durées de traitement ou de rééducation.",
       "command": "uvx",
       "args": ["mcp-server-time", "--local-timezone=Europe/Brussels"]
     },
 
     "calculator": {
-      "_comment": "Calculatrice avancée : arithmétique, trigonométrie, conversions d'unités. Utile pour les calculs de dosage, IMC, VO2max, charges d'entraînement.",
+      "_comment": "Calculs avancés : arithmétique, statistiques simples, dosages, IMC, VO2max, charges d'entraînement. Aucune dépendance externe.",
       "command": "uvx",
       "args": ["mcp-server-calculator"]
     },
 
     "filesystem": {
-      "_comment": "Accès lecture/écriture aux fichiers du volume /data. Permet de lire des documents uploadés (CSV, TXT, JSON), d'écrire des rapports, des exports.",
+      "_comment": "Lecture/écriture de fichiers dans /data. Package npm officiel Anthropic. Permet de lire des CSV, TXT, JSON uploadés par les utilisateurs.",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"]
+    },
+
+    "sqlite": {
+      "_comment": "Base de données relationnelle persistante. Parfait pour le suivi longitudinal : scores fonctionnels kiné, données de cohorte psychologie, performances sportives. Package PyPI officiel Anthropic.",
       "command": "uvx",
-      "args": ["mcp-server-filesystem", "--root=/data"]
+      "args": ["mcp-server-sqlite", "--db-path", "/data/sqlite/platform.db"]
     },
 
     "memory": {
-      "_comment": "Graphe de connaissances persistant entre sessions. Chaque utilisateur peut y stocker ses concepts clés, protocoles favoris, hypothèses de recherche. Survit aux redémarrages.",
+      "_comment": "Graphe de connaissances JSON persistant entre sessions. Chaque utilisateur peut y stocker ses concepts clés, protocoles favoris, hypothèses de recherche. Survit aux redémarrages du conteneur.",
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-memory"],
       "env": {
@@ -34,164 +40,49 @@
       }
     },
 
-    "sqlite": {
-      "_comment": "Base de données relationnelle légère. Idéal pour le suivi longitudinal : scores fonctionnels kiné, données de cohorte en psychologie, performances sportives.",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-sqlite",
-        "--db-path", "/data/sqlite/platform.db"
-      ]
-    },
-
     "sequential-thinking": {
-      "_comment": "Force le modèle à décomposer un problème complexe en étapes avant de répondre. Améliore considérablement la qualité des raisonnements cliniques et des plans de recherche.",
+      "_comment": "Force la décomposition des problèmes complexes en étapes avant de répondre. Améliore fortement la qualité des raisonnements cliniques, diagnostics différentiels, et plans de recherche.",
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
     },
 
-    "openalex": {
-      "_comment": "Moteur de recherche académique open source : 250M+ publications, auteurs, institutions, concepts. API gratuite sans clef. Alternative robuste à Scopus/WoS.",
-      "command": "uvx",
-      "args": [
-        "mcp-server-openapi",
-        "--base-url=https://api.openalex.org"
-      ]
-    },
-
-    "crossref": {
-      "_comment": "Base de métadonnées bibliographiques : DOI, citations, affiliation. Gratuit sans clef. Complémentaire à OpenAlex pour la résolution de DOI et les citations croisées.",
-      "command": "uvx",
-      "args": [
-        "mcp-server-openapi",
-        "--base-url=https://api.crossref.org"
-      ]
-    },
-
-    "pubmed": {
-      "_comment": "Accès à MEDLINE via l'API Entrez du NCBI. La référence absolue en médecine, physiologie, kiné, psychologie clinique. Gratuit, 3 req/s sans clef (10 avec clef NCBI gratuite).",
-      "command": "uvx",
-      "args": [
-        "mcp-server-openapi",
-        "--base-url=https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
-      ]
-    },
-
-    "arxiv": {
-      "_comment": "Preprints scientifiques en neurosciences, sciences cognitives, biomécanique, sport de haut niveau. Gratuit, sans clef. Accès aux recherches avant publication peer-reviewed.",
-      "command": "uvx",
-      "args": [
-        "mcp-server-openapi",
-        "--base-url=http://export.arxiv.org/api"
-      ]
-    },
-
-    "semantic-scholar": {
-      "_comment": "200M+ publications avec score d'influence, graphe de citations et résumés IA. API gratuite, très généreuse. Excellent pour les revues de littérature ciblées.",
-      "command": "uvx",
-      "args": [
-        "mcp-server-openapi",
-        "--base-url=https://api.semanticscholar.org/graph/v1"
-      ]
-    },
-
-    "wikipedia-fr": {
-      "_comment": "API REST Wikipedia (EN). Contextualisation rapide de concepts anatomiques, pathologies, interventions. Utile pour les étudiants qui ont besoin de définitions fiables.",
-      "command": "uvx",
-      "args": [
-        "mcp-server-openapi",
-        "--base-url=https://fr.wikipedia.org/api/rest_v1"
-      ]
-    },
-
-    "wikipedia-en": {
-      "_comment": "API REST Wikipedia (EN). Contextualisation rapide de concepts anatomiques, pathologies, interventions. Utile pour les étudiants qui ont besoin de définitions fiables.",
-      "command": "uvx",
-      "args": [
-        "mcp-server-openapi",
-        "--base-url=https://en.wikipedia.org/api/rest_v1"
-      ]
-    },
-
-    "clinical-trials": {
-      "_comment": "Base mondiale des essais cliniques en cours et terminés (NIH). Indispensable pour les chercheurs : identifier des protocoles existants, se positionner, recruter.",
-      "command": "uvx",
-      "args": [
-        "mcp-server-openapi",
-        "--base-url=https://clinicaltrials.gov/api/v2"
-      ]
-    },
-
-    "open-fda": {
-      "_comment": "Base de données FDA : médicaments, dispositifs médicaux, effets indésirables. Utile en kiné pour les interactions thérapeutiques et la pharmacovigilance.",
-      "command": "uvx",
-      "args": [
-        "mcp-server-openapi",
-        "--base-url=https://api.fda.gov"
-      ]
-    },
-
-    "bibliography": {
-      "_comment": "Gestionnaire bibliographique intégré : formate automatiquement les citations en APA (standard psychologie/kiné). Met en cache les résultats pour éviter les appels répétés.",
-      "command": "uvx",
-      "args": [
-        "mcp-server-bibliography",
-        "--style=APA",
-        "--cache-db=/data/sqlite/biblio_cache.db"
-      ]
-    },
-
-    "python": {
-      "_comment": "Exécution de code Python en sandbox isolée. Bibliothèques autorisées : matplotlib, numpy, pandas, scipy, seaborn. Pour analyses statistiques, modèles, traitements de données.",
-      "command": "uvx",
-      "args": [
-        "mcp-server-python",
-        "--sandboxed=true",
-        "--allowed-libraries=matplotlib,numpy,pandas,scipy,seaborn,statsmodels,sklearn,plotly"
-      ]
-    },
-
-    "pandas": {
-      "_comment": "Manipulation directe de fichiers CSV/Excel depuis /data/uploads. Filtrage, agrégation, pivot tables, corrélations — sans écrire de code. Parfait pour les données de recherche.",
-      "command": "uvx",
-      "args": ["mcp-server-pandas"],
-      "env": {
-        "DATA_DIR": "/data/uploads"
-      }
-    },
-
-    "plot": {
-      "_comment": "Génération de graphiques matplotlib sauvegardés dans /data/exports. Courbes d'évolution, boxplots, histogrammes — exportés en PNG/SVG intégrables dans les artifacts OpenWebUI.",
-      "command": "uvx",
-      "args": [
-        "mcp-server-plot",
-        "--engine=matplotlib",
-        "--output-dir=/data/exports"
-      ]
-    },
-
-    "vegalite": {
-      "_comment": "Visualisations interactives déclaratives (Vega-Lite). Génère des JSON de graphiques rendus directement dans OpenWebUI : scatter, heatmaps, faceted charts pour données multivariées.",
-      "command": "npx",
-      "args": ["-y", "mcp-server-vegalite"]
-    },
-
     "mermaid": {
-      "_comment": "Génère des diagrammes textuels : flowcharts, mind maps, timelines, séquences. Idéal pour représenter des protocoles de rééducation, parcours de soins, arbres décisionnels.",
+      "_comment": "Génère des diagrammes textuels : flowcharts, mind maps, timelines, séquences. Idéal pour protocoles de rééducation, parcours de soins, arbres décisionnels, plans d'études.",
       "command": "npx",
       "args": ["-y", "@peng-shawn/mermaid-mcp-server"]
     },
 
-    "youtube-transcript": {
-      "_comment": "Extrait les transcriptions de vidéos YouTube. Permet d'analyser des cours magistraux, conférences, démonstrations de techniques gestuelles ou sportives.",
+    "pubmed-search": {
+      "_comment": "Serveur tout-en-un pour la recherche académique biomédicale. Intègre PubMed, Europe PMC (33M+), CORE (200M+ full-text), OpenAlex ET Semantic Scholar en un seul outil. Inclut aussi ClinicalTrials.gov, PubChem, ClinVar. Gère les requêtes PICO, les exports BibTeX/RIS/CSV, et les réseaux de citations. L'email NCBI est obligatoire (politique NCBI) mais gratuit.",
       "command": "uvx",
-      "args": ["mcp-server-youtube-transcript"]
+      "args": ["pubmed-search-mcp"],
+      "env": {
+        "NCBI_EMAIL": "ton-email@institution.be"
+      }
     },
 
-    "pandoc": {
-      "_comment": "Conversion universelle de documents : Markdown → PDF/DOCX/HTML, LaTeX → PDF. Utile pour générer des rapports finaux formatés depuis les artifacts produits dans OpenWebUI.",
+    "arxiv": {
+      "_comment": "Recherche et téléchargement de preprints ArXiv. Neurosciences, biomécanique, psychologie cognitive, sciences du sport de haut niveau. Accès avant publication peer-reviewed. Stocke les PDFs localement pour analyse offline.",
       "command": "uvx",
-      "args": ["mcp-server-pandoc"]
+      "args": ["arxiv-mcp-server", "--storage-path", "/data/arxiv"]
+    },
+
+    "wikipedia-fr": {
+      "_comment": "Recherche Wikipedia en français. Contextualisation rapide de concepts anatomiques, pathologies, interventions thérapeutiques pour les étudiants francophones.",
+      "command": "uvx",
+      "args": ["wikipedia-mcp", "--language", "fr"]
+    },
+
+    "wikipedia-en": {
+      "_comment": "Recherche Wikipedia en anglais. Indispensable pour la littérature scientifique internationale, les termes anatomiques et cliniques en anglais.",
+      "command": "uvx",
+      "args": ["wikipedia-mcp", "--language", "en"]
+    },
+
+    "youtube-transcript": {
+      "_comment": "Transcription de vidéos YouTube avec sélection de langue. Utile pour analyser des cours magistraux, conférences TED médicales, démonstrations de techniques gestuelles sportives ou de rééducation.",
+      "command": "uvx",
+      "args": ["mcp-youtube-transcript"]
     }
 
   }
