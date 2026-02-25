@@ -180,6 +180,8 @@ volumes:
     driver: local
   mcp_exports:
     driver: local
+  mcp_arxiv:
+    driver: local
 
 networks:
   llm-network:
