@@ -1,24 +1,6 @@
 {
   "mcpServers": {
 
-    "fetch": {
-      "_comment": "Récupère le contenu HTML/texte de n'importe quelle URL. Sert aussi de repli pour interroger les APIs REST publiques (OpenAlex, Crossref, openFDA, ClinicalTrials).",
-      "command": "uvx",
-      "args": ["mcp-server-fetch"]
-    },
-
-    "time": {
-      "_comment": "Heure et date courante avec gestion des fuseaux horaires. Utile pour horodater des notes, calculer des durées de traitement ou de rééducation.",
-      "command": "uvx",
-      "args": ["mcp-server-time", "--local-timezone=Europe/Brussels"]
-    },
-
-    "calculator": {
-      "_comment": "Calculs avancés : arithmétique, statistiques simples, dosages, IMC, VO2max, charges d'entraînement. Aucune dépendance externe.",
-      "command": "uvx",
-      "args": ["mcp-server-calculator"]
-    },
-
     "filesystem": {
       "_comment": "Lecture/écriture de fichiers dans /data. Package npm officiel Anthropic. Permet de lire des CSV, TXT, JSON uploadés par les utilisateurs.",
       "command": "npx",
@@ -29,6 +11,22 @@
       "_comment": "Base de données relationnelle persistante. Parfait pour le suivi longitudinal : scores fonctionnels kiné, données de cohorte psychologie, performances sportives. Package PyPI officiel Anthropic.",
       "command": "uvx",
       "args": ["mcp-server-sqlite", "--db-path", "/data/sqlite/platform.db"]
+    },
+
+    "python": {
+      "command": "uvx",
+      "args": ["mcp-server-python"]
+    },
+
+    "duckdb": {
+      "_comment": "Base de données OLAP ultra-rapide. Parfait pour l'analyse de gros fichiers CSV/Parquet (ex: données brutes de capteurs sportifs, logs d'accéléromètres) que SQLite peine à traiter.",
+      "command": "uvx",
+      "args": ["mcp-server-duckdb", "--db-path", "/data/duckdb/research_analytics.db"]
+    },
+
+    "git": {
+      "command": "uvx",
+      "args": ["mcp-server-git"]
     },
 
     "memory": {
@@ -46,18 +44,23 @@
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
     },
 
-    "mermaid": {
-      "_comment": "Génère des diagrammes textuels : flowcharts, mind maps, timelines, séquences. Idéal pour protocoles de rééducation, parcours de soins, arbres décisionnels, plans d'études.",
-      "command": "npx",
-      "args": ["-y", "@peng-shawn/mermaid-mcp-server"]
+    "wolfram-alpha": {
+      "_comment": "Moteur de connaissances computationnel. Indispensable pour valider des calculs de biomécanique, des formules chimiques ou des statistiques sans erreur de calcul du LLM. Nécessite un AppID gratuit.",
+      "command": "uvx",
+      "args": ["mcp-server-wolfram-alpha"],
+      "env": {
+        "WOLFRAM_ALPHA_APP_ID": "TON_APP_ID"
+      }
     },
 
     "pubmed-search": {
-      "_comment": "Serveur tout-en-un pour la recherche académique biomédicale. Intègre PubMed, Europe PMC (33M+), CORE (200M+ full-text), OpenAlex ET Semantic Scholar en un seul outil. Inclut aussi ClinicalTrials.gov, PubChem, ClinVar. Gère les requêtes PICO, les exports BibTeX/RIS/CSV, et les réseaux de citations. L'email NCBI est obligatoire (politique NCBI) mais gratuit.",
+      "_comment": "Le serveur le plus complet : agrège PubMed, Europe PMC, Semantic Scholar et OpenAlex. Gère les citations et les essais cliniques.",
       "command": "uvx",
       "args": ["pubmed-search-mcp"],
       "env": {
-        "NCBI_EMAIL": "ton-email@institution.be"
+        "NCBI_EMAIL": "ton-email@institution.be",
+        "NCBI_API_KEY": "TA_CLE_API_NCBI",
+        "SEMANTIC_SCHOLAR_API_KEY": "OPTIONNEL_SI_TU_EN_AS_UNE"
       }
     },
 
@@ -67,16 +70,10 @@
       "args": ["arxiv-mcp-server", "--storage-path", "/data/arxiv"]
     },
 
-    "wikipedia-fr": {
-      "_comment": "Recherche Wikipedia en français. Contextualisation rapide de concepts anatomiques, pathologies, interventions thérapeutiques pour les étudiants francophones.",
+    "wikipedia": {
+      "_comment": "Recherche Wikipedia",
       "command": "uvx",
-      "args": ["wikipedia-mcp", "--language", "fr"]
-    },
-
-    "wikipedia-en": {
-      "_comment": "Recherche Wikipedia en anglais. Indispensable pour la littérature scientifique internationale, les termes anatomiques et cliniques en anglais.",
-      "command": "uvx",
-      "args": ["wikipedia-mcp", "--language", "en"]
+      "args": ["wikipedia-mcp"]
     },
 
     "youtube-transcript": {
