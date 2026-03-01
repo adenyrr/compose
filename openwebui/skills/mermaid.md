@@ -9,6 +9,47 @@ Mermaid turns text definitions into SVG diagrams. Diagrams live in plain text, v
 
 ---
 
+## Artifact Presentation & Use Cases
+
+Every Mermaid artifact is a self-contained HTML page with a dark theme. The visual structure follows:
+
+- **Dark body** (`#0f1117`) fills the viewport
+- **Card wrapper** (`#1a1d27`, 16px radius, soft shadow) centers the diagram(s)
+- **Title** (`h1`, 1.15rem, `#f1f5f9`) describes the diagram
+- **Subtitle** (`p.sub`, 0.82rem, `#64748b`) adds context
+- **`.mermaid` div(s)** containing the text definition — Mermaid renders SVG inline
+
+### Typical use cases
+
+- **Process flows** — flowcharts for workflows, decision trees, approval processes
+- **System interactions** — sequence diagrams for API calls, auth flows, microservice communication
+- **Data models** — entity-relationship diagrams for databases, class diagrams for OOP
+- **State machines** — state diagrams for UI states, order lifecycles, protocol states
+- **Architecture** — C4 models, architecture diagrams, deployment topologies
+- **Planning** — Gantt charts for project timelines, mindmaps for brainstorming, Git branch graphs
+
+### What the user sees
+
+Clean SVG diagrams rendered from text: crisp shapes, readable labels, dark-themed with custom colors. Multi-diagram pages show related views side by side. Diagrams are static (no drag/zoom) but pixel-perfect and export-ready.
+
+---
+
+## When to Use Mermaid vs. Alternatives
+
+| Use Mermaid when… | Use another tool when… |
+|---|---|
+| Flowcharts, decision trees, process flows | Interactive node-edge graphs with drag/physics → **vis-network** |
+| Sequence diagrams (API, auth, messaging) | Data-driven bar/line/pie charts → **Chart.js / Plotly** |
+| ER diagrams, class diagrams | Geographic maps → **Leaflet** |
+| Gantt charts (static view) | Interactive timelines with drag-and-drop → **vis-timeline** |
+| Git branch visualization | Bespoke SVG visualizations → **D3.js** |
+| Quick architecture diagrams | Animated DOM/SVG → **Anime.js** |
+| Text-based, version-controllable diagrams | Complex, interactive UIs → **React + shadcn/ui** |
+
+> **Rule of thumb:** if the diagram can be expressed as a text definition (nodes, edges, sequences) and doesn’t need interactivity, Mermaid is the fastest and most maintainable option.
+
+---
+
 ## Step 1 — CDN Setup
 
 Mermaid v11 ships as an ES module. The simplest pattern for single-file HTML artifacts uses the UMD build:
@@ -484,7 +525,21 @@ architecture-beta
 
 ---
 
-## Step 11 — Complete Example: Multi-Diagram Page
+## Step 11 — Design & Polish Guidelines
+
+- **Always use dark theme** — `theme: 'dark'` in `mermaid.initialize()` with custom `themeVariables` for consistency
+- **Custom colors** — override `primaryColor`, `primaryTextColor`, `lineColor`, `secondaryColor` via `themeVariables` to match the design system
+- **Font** — set `fontFamily: 'Segoe UI, system-ui, sans-serif'` in the initialize config for consistency
+- **Keep diagrams readable** — limit flowcharts to 15–20 nodes; for complex systems, split into multiple diagrams on one page
+- **Label brevity** — use short node labels (2–4 words); add detail in subgraphs or separate sequence diagrams
+- **Subgraphs for grouping** — use `subgraph` in flowcharts to visually separate concerns (frontend, backend, database)
+- **Direction** — `TB` (top-bottom) for vertical flows, `LR` (left-right) for horizontal processes; choose based on the natural reading direction of the data
+- **Multi-diagram pages** — use a `.grid` CSS layout with multiple `.mermaid` divs for related diagrams side by side
+- **Accessibility** — Mermaid renders SVG with embedded text; add an `aria-label` on the wrapper div for screen reader context
+
+---
+
+## Step 12 — Complete Example: Multi-Diagram Page
 
 ```html
 <!DOCTYPE html>

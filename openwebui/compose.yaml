@@ -52,6 +52,8 @@ services:
 
       ENABLE_MCP_SERVERS: "true"
       MCP_SERVER_BASE_URL: "http://mcpo:8000"
+      CONTEXT7_API_KEY: "${CONTEXT7_API_KEY}"
+      PUBMED_API_KEY: "${PUBMED_API_KEY}"
 
       #SSO
       ENABLE_OAUTH_SIGNUP: ${ENABLE_OAUTH_SIGNUP}
@@ -141,14 +143,54 @@ services:
     ports:
       - "3722:8000"
     command: ["mcpo", "--config", "/config/mcpo_config.json"]
+    environment:
+      CONTEXT7_API_KEY: "${CONTEXT7_API_KEY}"
+      PUBMED_API_KEY: "${PUBMED_API_KEY}"
     volumes:
       - ./mcpo_config.json:/config/mcpo_config.json:ro
       # Volumes de données MCP :
       - mcp_memory:/data/memory
-      - mcp_sqlite:/data/sqlite
+      - mcp_duckdb:/data/duckdb
       - mcp_uploads:/data/uploads
       - mcp_exports:/data/exports
-      - mcp_arxiv:/data/arxiv
+      - mcp_papers:/data/papers
+    depends_on:
+      playwright-mcp:
+        condition: service_started
+      biomcp:
+        condition: service_started
+    restart: always
+    networks:
+      - llm-network
+
+  playwright-mcp:
+    image: node:22-slim
+    container_name: playwright-mcp
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        npx -y playwright install --with-deps chromium &&
+        npx -y @playwright/mcp@latest --port 8931 --host 0.0.0.0 --headless --isolated --no-sandbox
+    environment:
+      NODE_ENV: production
+    ports:
+      - "8931:8931"
+    restart: always
+    networks:
+      - llm-network
+
+  biomcp:
+    image: debian:bookworm-slim
+    container_name: biomcp
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apt-get update && apt-get install -y --no-install-recommends curl ca-certificates &&
+        curl -fsSL https://raw.githubusercontent.com/genomoncology/biomcp/main/install.sh | bash &&
+        ~/.local/bin/biomcp serve-http --host 0.0.0.0 --port 8080
+    # Port interne uniquement — mcpo s'y connecte via http://biomcp:8080/mcp
+    # ports:
+    #   - "8080:8080"
     restart: always
     networks:
       - llm-network
@@ -174,13 +216,13 @@ volumes:
     driver: local
   mcp_memory:
     driver: local
-  mcp_sqlite:
+  mcp_duckdb:
     driver: local
   mcp_uploads:
     driver: local
   mcp_exports:
     driver: local
-  mcp_arxiv:
+  mcp_papers:
     driver: local
 
 networks:

@@ -9,6 +9,47 @@ vis-network renders interactive node-edge graphs on an HTML Canvas using a built
 
 ---
 
+## Artifact Presentation & Use Cases
+
+Every vis-network artifact is a self-contained HTML page with a dark theme. The visual structure follows:
+
+- **Dark body** (`#0f1117`) fills the viewport
+- **Card wrapper** (`#1a1d27`, 16px radius, soft shadow) centers the network graph
+- **Title** (`h1`, 1.15rem, `#f1f5f9`) describes the network
+- **Subtitle** (`p.sub`, 0.82rem, `#64748b`) adds context and interaction hints
+- **Canvas container** (`#network`, fixed height) renders the interactive graph with physics simulation
+- **Optional legend** showing node type colors and edge meanings
+
+### Typical use cases
+
+- **Infrastructure maps** — servers, databases, services, and their connections
+- **Dependency graphs** — package dependencies, module imports, build pipelines
+- **Organizational charts** — hierarchical reporting structures with role information
+- **Knowledge graphs** — concept maps, topic relationships, entity connections
+- **Social networks** — user connections, interaction patterns, community clusters
+- **Flow diagrams** — process flows with directed edges showing data/control flow
+
+### What the user sees
+
+An interactive graph: drag nodes to rearrange, scroll to zoom, hover for tooltips, click to select. The physics engine auto-positions nodes with spring-like forces. Nodes settle into a balanced layout after a brief stabilization animation.
+
+---
+
+## When to Use vis-network vs. Alternatives
+
+| Use vis-network when… | Use another tool when… |
+|---|---|
+| Interactive node-edge graphs | Static flowcharts, sequence diagrams → **Mermaid** |
+| Built-in physics engine for auto-layout | Pixel-perfect custom SVG network layouts → **D3** (force simulation) |
+| Drag-and-drop node manipulation | Geographic maps with tiles and markers → **Leaflet** |
+| Hierarchical tree/DAG layouts | Data charts (bar, line, pie) → **Chart.js / Plotly** |
+| Clustering large graphs (100+ nodes) | Timeline-based views → **vis-timeline** |
+| Quick setup, minimal code | Complex SVG animations → **Anime.js + D3** |
+
+> **Rule of thumb:** if the data is nodes connected by edges and users need to interact (drag, zoom, click), vis-network is the simplest and most feature-rich option. For static diagrams, use Mermaid.
+
+---
+
 ## Step 1 — CDN Setup (Standalone Build — one file, self-contained)
 
 ```html
@@ -503,7 +544,21 @@ const options = {
 
 ---
 
-## Step 11 — Complete Example: Styled Directed Network
+## Step 11 — Design & Polish Guidelines
+
+- **Dark node palette** — use muted backgrounds (`#6366f1`, `#8b5cf6`, `#22c55e`) with white/light labels; avoid pure white nodes on dark canvas
+- **Font contrast** — node labels should use `color: '#f1f5f9'` for readability on dark node backgrounds
+- **Edge arrows** — use `arrows: { to: { enabled: true, scaleFactor: 0.8 } }` for directed graphs; omit arrows for undirected relationships
+- **Physics tuning** — reduce `solver: 'barnesHut'` with `gravitationalConstant: -3000` for smaller graphs; increase for dense graphs
+- **Stabilization** — show a loading indicator during stabilization for large graphs (`stabilizationProgress` event)
+- **Clustering** — group related nodes using `network.cluster()` with opening on double-click for manageable views
+- **Legend** — add a CSS-based legend outside the canvas showing node colors → categories and edge styles → relationships
+- **Canvas background** — set canvas background to transparent so the card background shows through
+- **Interaction hints** — add a subtitle like “drag to rearrange · scroll to zoom · click to select” so users know the graph is interactive
+
+---
+
+## Step 12 — Complete Example: Styled Directed Network
 
 ```html
 <!DOCTYPE html>

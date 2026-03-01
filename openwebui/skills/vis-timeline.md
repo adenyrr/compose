@@ -9,6 +9,47 @@ vis-timeline renders interactive timelines in the browser using HTML DOM (not Ca
 
 ---
 
+## Artifact Presentation & Use Cases
+
+Every vis-timeline artifact is a self-contained HTML page with a dark theme. The visual structure follows:
+
+- **Dark body** (`#0f1117`) fills the viewport
+- **Card wrapper** (`#1a1d27`, 16px radius, soft shadow) centers the timeline
+- **Title** (`h1`, 1.15rem, `#f1f5f9`) describes the timeline
+- **Subtitle** (`p.sub`, 0.82rem, `#64748b`) adds context and interaction hints
+- **Timeline container** (`#timeline`, fixed height) renders the interactive timeline with CSS-styled items
+- **Optional legend or controls** for filtering groups or toggling views
+
+### Typical use cases
+
+- **Project schedules** — task bars grouped by team/phase with start and end dates
+- **Historical timelines** — events placed chronologically with descriptions and images
+- **Roadmaps** — milestones and features across multiple tracks/workstreams
+- **Event sequences** — log entries, incidents, or activities along a time axis
+- **Gantt-like views** — resource allocation with grouped lanes and overlapping ranges
+- **Process timelines** — step-by-step workflows with duration visualization
+
+### What the user sees
+
+An interactive timeline: scroll horizontally to move through time, scroll vertically to see groups, drag items to reschedule, zoom in/out for different time granularity. Items are styled DOM elements (not canvas) so they support rich HTML content and CSS hover effects.
+
+---
+
+## When to Use vis-timeline vs. Alternatives
+
+| Use vis-timeline when… | Use another tool when… |
+|---|---|
+| Time-based data with start/end dates | Static, text-based Gantt charts → **Mermaid** (simpler syntax) |
+| Grouped lanes (teams, categories) | Node-edge relationship graphs → **vis-network** |
+| Drag-and-drop item editing | Data charts (bar, line, pie) → **Chart.js / Plotly** |
+| Zoomable time navigation | Geographic maps → **Leaflet** |
+| Custom HTML content in items | SVG-based custom timeline visualizations → **D3** |
+| Interactive project planning views | Tabular schedule data → **Tabulator** |
+
+> **Rule of thumb:** if the primary axis is time and items need to be placed, explored, or edited along that axis, vis-timeline is the right choice. For static Gantt charts in documentation, Mermaid is simpler.
+
+---
+
 ## Step 1 — CDN Setup (CRITICAL: two files required)
 
 vis-timeline **always** requires both a JS file and a CSS file. Missing the CSS produces a broken, unstyled layout.
@@ -432,7 +473,21 @@ const options = {
 
 ---
 
-## Step 11 — Complete Example: Multi-Group Project Timeline
+## Step 11 — Design & Polish Guidelines
+
+- **Dark CSS overrides** — always include the full dark theme CSS from Step 9; missing overrides leave white backgrounds on the time axis, group labels, or item text
+- **Item colors** — use the design system accent colors (`#6366f1`, `#8b5cf6`, `#22c55e`) as item backgrounds with `rgba()` for transparency
+- **Group styling** — style `.vis-label` for group sidebar labels; use subtle borders between groups for visual separation
+- **Time axis** — style `.vis-time-axis .vis-text` with `color: #94a3b8` for readable axis labels on dark backgrounds
+- **Zoom constraints** — use `zoomMin` / `zoomMax` to prevent users from zooming into milliseconds or out to centuries
+- **Initial window** — always set `start` and `end` in options (or `fit()` after adding items) to show a meaningful default view
+- **Tooltips** — use `title` property on items for lightweight tooltips, or `template` for rich HTML content inside items
+- **Stack optimization** — `stack: true` prevents item overlap; disable only for background items or when density is intentional
+- **Accessibility** — add descriptive `<h1>` and `aria-label` on the timeline container; vis-timeline items are DOM elements and inherit focus management
+
+---
+
+## Step 12 — Complete Example: Multi-Group Project Timeline
 
 ```html
 <!DOCTYPE html>

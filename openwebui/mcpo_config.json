@@ -2,35 +2,25 @@
   "mcpServers": {
 
     "filesystem": {
-      "_comment": "Lecture/écriture de fichiers dans /data. Package npm officiel Anthropic. Permet de lire des CSV, TXT, JSON uploadés par les utilisateurs.",
+      "_comment": "Lecture/écriture de fichiers dans /data. Package npm officiel Anthropic.",
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"]
     },
 
-    "sqlite": {
-      "_comment": "Base de données relationnelle persistante. Parfait pour le suivi longitudinal : scores fonctionnels kiné, données de cohorte psychologie, performances sportives. Package PyPI officiel Anthropic.",
-      "command": "uvx",
-      "args": ["mcp-server-sqlite", "--db-path", "/data/sqlite/platform.db"]
-    },
-
-    "python": {
-      "command": "uvx",
-      "args": ["mcp-server-python"]
-    },
-
     "duckdb": {
-      "_comment": "Base de données OLAP ultra-rapide. Parfait pour l'analyse de gros fichiers CSV/Parquet (ex: données brutes de capteurs sportifs, logs d'accéléromètres) que SQLite peine à traiter.",
+      "_comment": "Base de données OLAP ultra-rapide. Remplace sqlite (archivé avr. 2025). Analyse de fichiers CSV/Parquet, suivi longitudinal, données de cohorte.",
       "command": "uvx",
       "args": ["mcp-server-duckdb", "--db-path", "/data/duckdb/research_analytics.db"]
     },
 
     "git": {
+      "_comment": "Opérations Git (diff, log, blame, etc.). Package PyPI officiel Anthropic.",
       "command": "uvx",
       "args": ["mcp-server-git"]
     },
 
     "memory": {
-      "_comment": "Graphe de connaissances JSON persistant entre sessions. Chaque utilisateur peut y stocker ses concepts clés, protocoles favoris, hypothèses de recherche. Survit aux redémarrages du conteneur.",
+      "_comment": "MULTI-USER",
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-memory"],
       "env": {
@@ -39,47 +29,82 @@
     },
 
     "sequential-thinking": {
-      "_comment": "Force la décomposition des problèmes complexes en étapes avant de répondre. Améliore fortement la qualité des raisonnements cliniques, diagnostics différentiels, et plans de recherche.",
+      "_comment": "Décomposition de problèmes complexes en étapes. Améliore les raisonnements cliniques, diagnostics différentiels, plans de recherche.",
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
     },
 
-    "wolfram-alpha": {
-      "_comment": "Moteur de connaissances computationnel. Indispensable pour valider des calculs de biomécanique, des formules chimiques ou des statistiques sans erreur de calcul du LLM. Nécessite un AppID gratuit.",
-      "command": "uvx",
-      "args": ["mcp-server-wolfram-alpha"],
-      "env": {
-        "WOLFRAM_ALPHA_APP_ID": "TON_APP_ID"
-      }
-    },
-
-    "pubmed-search": {
-      "_comment": "Le serveur le plus complet : agrège PubMed, Europe PMC, Semantic Scholar et OpenAlex. Gère les citations et les essais cliniques.",
-      "command": "uvx",
-      "args": ["pubmed-search-mcp"],
-      "env": {
-        "NCBI_EMAIL": "ton-email@institution.be",
-        "NCBI_API_KEY": "TA_CLE_API_NCBI",
-        "SEMANTIC_SCHOLAR_API_KEY": "OPTIONNEL_SI_TU_EN_AS_UNE"
-      }
-    },
-
-    "arxiv": {
-      "_comment": "Recherche et téléchargement de preprints ArXiv. Neurosciences, biomécanique, psychologie cognitive, sciences du sport de haut niveau. Accès avant publication peer-reviewed. Stocke les PDFs localement pour analyse offline.",
-      "command": "uvx",
-      "args": ["arxiv-mcp-server", "--storage-path", "/data/arxiv"]
-    },
-
     "wikipedia": {
-      "_comment": "Recherche Wikipedia",
+      "_comment": "Recherche Wikipedia multi-langue avec caching.",
       "command": "uvx",
       "args": ["wikipedia-mcp"]
     },
 
     "youtube-transcript": {
-      "_comment": "Transcription de vidéos YouTube avec sélection de langue. Utile pour analyser des cours magistraux, conférences TED médicales, démonstrations de techniques gestuelles sportives ou de rééducation.",
+      "_comment": "Transcription de vidéos YouTube avec sélection de langue. Cours magistraux, conférences, démonstrations techniques.",
       "command": "uvx",
       "args": ["mcp-youtube-transcript"]
+    },
+
+    "paper-search": {
+      "_comment": "Recherche académique unifiée — 14 plateformes : arXiv, PubMed, Sci-Hub, Google Scholar, Semantic Scholar, bioRxiv, medRxiv, Crossref, Web of Science, ScienceDirect, Springer, Wiley, Scopus, IACR. PubMed/arXiv/Sci-Hub/Crossref/Google Scholar fonctionnent sans clé API. WoS/ScienceDirect/Springer/Wiley/Scopus nécessitent des clés optionnelles.",
+      "command": "npx",
+      "args": ["-y", "paper-search-mcp-nodejs"],
+      "env": {
+        "PUBMED_API_KEY": "${PUBMED_API_KEY}"
+      }
+    },
+
+    "pandoc": {
+      "_comment": "Conversion de documents : Markdown ↔ DOCX ↔ LaTeX ↔ HTML ↔ EPUB. Indispensable pour la rédaction académique.",
+      "command": "uvx",
+      "args": ["mcp-pandoc"]
+    },
+
+    "markitdown": {
+      "_comment": "Convertit PDF, Word, Excel, PowerPoint, HTML, images, audio, CSV, JSON, ZIP en Markdown. Microsoft, 88.7K stars.",
+      "command": "uvx",
+      "args": ["markitdown-mcp"]
+    },
+
+    "calculator": {
+      "_comment": "Évaluation d'expressions mathématiques (bibliothèque math Python complète).",
+      "command": "uvx",
+      "args": ["mcp-server-calculator"]
+    },
+
+    "cli": {
+      "_comment": "Exécution shell sécurisée avec whitelist de commandes et validation de chemins.",
+      "command": "uvx",
+      "args": ["cli-mcp-server"],
+      "env": {
+        "ALLOWED_DIR": "/data",
+        "ALLOWED_COMMANDS": "all",
+        "ALLOWED_FLAGS": "all",
+        "COMMAND_TIMEOUT": "30",
+        "ALLOW_SHELL_OPERATORS": "true"
+      }
+    },
+
+    "playwright": {
+      "_comment": "Browser automation headless — 59 outils (navigate, click, fill, screenshot, PDF, etc.). Microsoft, 27.9K stars. Sidecar Docker.",
+      "type": "http",
+      "url": "http://playwright-mcp:8931/mcp"
+    },
+
+    "biomcp": {
+      "_comment": "Données biomédicales structurées — 12 entités sur 15+ sources : ClinVar, gnomAD, OpenFDA, ClinicalTrials.gov, ChEMBL, CPIC, PharmGKB, UniProt, Reactome. 14 workflows cliniques. Sidecar Docker.",
+      "type": "http",
+      "url": "http://biomcp:8080/mcp"
+    },
+
+    "context7-remote": {
+      "_comment": "Documentation technique à jour pour les librairies de dev. Nécessite CONTEXT7_API_KEY.",
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "env": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      }
     }
 
   }

@@ -9,7 +9,33 @@ D3 (Data-Driven Documents) is not a charting library — it is a **low-level too
 
 ---
 
-## When D3 vs. Other Libraries
+## Artifact Presentation & Use Cases
+
+Every D3 artifact is a self-contained HTML page with a dark theme. The visual structure follows:
+
+- **Dark body** (`#0f1117`) fills the viewport
+- **Card wrapper** (`#1a1d27`, 16px radius, soft shadow) centers the visualization
+- **Title** (`h1`, 1.15rem, `#f1f5f9`) describes the chart
+- **Subtitle** (`p.sub`, 0.82rem, `#64748b`) adds context and interaction hints
+- **SVG element** renders the custom visualization with D3-managed elements
+- **Tooltip div** (`position: absolute`, dark themed) appears on hover
+
+### Typical use cases
+
+- **Force-directed network graphs** — visualize relationships between entities with physics simulation
+- **Geographic maps** — world/country maps with projections, choropleths, and interactive features
+- **Hierarchical layouts** — treemaps, sunbursts, packed circles, dendrograms for nested data
+- **Custom chart types** — chord diagrams, streamgraphs, ridgeline plots, Voronoi tessellations
+- **Animated transitions** — smooth data-driven enter/update/exit transitions on any element
+- **Brushing & zooming** — linked multi-view dashboards with interactive selection and zoom
+
+### What the user sees
+
+A bespoke SVG visualization: hover for detailed tooltips, watch smooth animated transitions on data changes, interact via drag, zoom, or brush. Every visual element is pixel-perfect and tailored to the specific dataset.
+
+---
+
+## When to Use D3 vs. Alternatives
 
 | Use D3 when… | Use Chart.js / Plotly when… |
 |---|---|
@@ -719,7 +745,7 @@ d3.interpolateRgb('#6366f1', '#ec4899')(0.5)  // midpoint color
 
 ---
 
-## Design Guidelines
+## Step 17 — Design & Polish Guidelines
 
 - **SVG text**: always set `fill` explicitly — SVG text ignores CSS `color`
 - **Clipping**: add a `<clipPath>` when elements may overflow the drawing area (especially after zoom)
@@ -731,7 +757,7 @@ d3.interpolateRgb('#6366f1', '#ec4899')(0.5)  // midpoint color
 
 ---
 
-## Common Mistakes to Avoid
+## Step 18 — Common Mistakes to Avoid
 
 - **Forgetting `transform: translate`**: SVG coordinates start at (0,0) top-left; axes and chart content need explicit translation via the margin convention
 - **Selecting before appending**: `d3.select('.bar')` on non-existent elements returns empty selection silently — always append first or check `.empty()`
