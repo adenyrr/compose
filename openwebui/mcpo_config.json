@@ -86,12 +86,6 @@
       }
     },
 
-    "playwright": {
-      "_comment": "Browser automation headless — 59 outils (navigate, click, fill, screenshot, PDF, etc.). Microsoft, 27.9K stars. Sidecar Docker.",
-      "type": "http",
-      "url": "http://playwright-mcp:8931/mcp"
-    },
-
     "biomcp": {
       "_comment": "Données biomédicales structurées — 12 entités sur 15+ sources : ClinVar, gnomAD, OpenFDA, ClinicalTrials.gov, ChEMBL, CPIC, PharmGKB, UniProt, Reactome. 14 workflows cliniques. Sidecar Docker.",
       "type": "http",
