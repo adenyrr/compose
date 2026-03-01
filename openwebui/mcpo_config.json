@@ -88,13 +88,11 @@
 
     "biomcp": {
       "_comment": "Données biomédicales structurées — 12 entités sur 15+ sources : ClinVar, gnomAD, OpenFDA, ClinicalTrials.gov, ChEMBL, CPIC, PharmGKB, UniProt, Reactome. 14 workflows cliniques. Sidecar Docker.",
-      "type": "http",
       "url": "http://biomcp:8080/mcp"
     },
 
     "context7-remote": {
       "_comment": "Documentation technique à jour pour les librairies de dev. Nécessite CONTEXT7_API_KEY.",
-      "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "env": {
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
