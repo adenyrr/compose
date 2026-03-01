@@ -98,10 +98,10 @@
       "url": "http://biomcp:8080/sse"
     },
 
-    "context7-remote": {
-      "_comment": "Documentation technique à jour pour les librairies de dev. Nécessite CONTEXT7_API_KEY.",
-      "type": "streamable-http",
-      "url": "https://mcp.context7.com/mcp",
+    "context7": {
+      "_comment": "Documentation technique à jour pour les librairies de dev. Améliore les rate limits avec CONTEXT7_API_KEY (optionnel).",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"],
       "env": {
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
       }
