@@ -1,12 +1,6 @@
 {
   "mcpServers": {
 
-    "filesystem": {
-      "_comment": "Lecture/écriture de fichiers dans /data. Package npm officiel Anthropic.",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"]
-    },
-
     "duckdb": {
       "_comment": "Base de données OLAP ultra-rapide. Remplace sqlite (archivé avr. 2025). Analyse de fichiers CSV/Parquet, suivi longitudinal, données de cohorte.",
       "command": "uvx",
@@ -51,7 +45,10 @@
       "command": "npx",
       "args": ["-y", "paper-search-mcp-nodejs"],
       "env": {
-        "PUBMED_API_KEY": "${PUBMED_API_KEY}"
+        "PUBMED_API_KEY": "${PUBMED_API_KEY}",
+        "SEMANTIC_SCHOLAR_API_KEY": "${SEMANTIC_SCHOLAR_API_KEY}",
+        "WOS_API_KEY": "${WOS_API_KEY}",
+        "WOS_API_VERSION": "${WOS_API_VERSION}"
       }
     },
 
@@ -73,18 +70,6 @@
       "args": ["mcp-server-calculator"]
     },
 
-    "cli": {
-      "_comment": "Exécution shell sécurisée avec whitelist de commandes et validation de chemins.",
-      "command": "uvx",
-      "args": ["cli-mcp-server"],
-      "env": {
-        "ALLOWED_DIR": "/data",
-        "ALLOWED_COMMANDS": "all",
-        "ALLOWED_FLAGS": "all",
-        "COMMAND_TIMEOUT": "30",
-        "ALLOW_SHELL_OPERATORS": "true"
-      }
-    },
 
     "playwright": {
       "_comment": "Automatisation navigateur headless — navigation web, scraping, tests UI. Sidecar Docker (streamable-http).",
@@ -99,10 +84,10 @@
     },
 
     "context7": {
-      "_comment": "Documentation technique à jour pour les librairies de dev. Améliore les rate limits avec CONTEXT7_API_KEY (optionnel).",
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"],
-      "env": {
+      "_comment": "Documentation technique à jour pour les librairies de dev. Configuration remote officielle Context7.",
+      "type": "streamable-http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
       }
     }

@@ -217,6 +217,19 @@ services:
     networks:
       - llm-network
 
+  open-terminal:
+    image: ghcr.io/open-webui/open-terminal
+    container_name: open-terminal
+    environment:
+      OPEN_TERMINAL_API_KEY: "${OPEN_TERMINAL_API_KEY}"
+    volumes:
+      - open_terminal_data:/home/user
+    ports:
+      - "3723:8000"
+    restart: unless-stopped
+    networks:
+      - llm-network
+
 volumes:
   open-webui:
     driver: local
@@ -235,6 +248,8 @@ volumes:
   mcp_exports:
     driver: local
   mcp_papers:
+    driver: local
+  open_terminal_data:
     driver: local
 
 networks:
