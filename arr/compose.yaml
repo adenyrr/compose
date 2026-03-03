@@ -1,0 +1,72 @@
+services:
+
+  # ─────────────────────────────────────────
+  # Prowlarr – Gestionnaire d'indexeurs
+  # ─────────────────────────────────────────
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-Europe/Brussels}
+    volumes:
+      - prowlarr-config:/config
+    ports:
+      - "9696:9696"
+    restart: unless-stopped
+    networks:
+      - media
+
+  # ─────────────────────────────────────────
+  # Sonarr – Gestionnaire de séries TV
+  # ─────────────────────────────────────────
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-Europe/Brussels}
+    volumes:
+      - sonarr-config:/config
+      - ./data/tv:/tv
+      - ./data/downloads:/downloads
+    ports:
+      - "8989:8989"
+    restart: unless-stopped
+    networks:
+      - media
+    depends_on:
+      - prowlarr
+
+  # ─────────────────────────────────────────
+  # Radarr – Gestionnaire de films
+  # ─────────────────────────────────────────
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-Europe/Brussels}
+    volumes:
+      - radarr-config:/config
+      - ./data/movies:/movies
+      - ./data/downloads:/downloads
+    ports:
+      - "7878:7878"
+    restart: unless-stopped
+    networks:
+      - media
+    depends_on:
+      - prowlarr
+
+networks:
+  media:
+    driver: bridge
+
+volumes:
+  prowlarr-config:
+  sonarr-config:
+  radarr-config:
