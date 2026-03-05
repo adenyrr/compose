@@ -68,28 +68,6 @@
       "_comment": "Évaluation d'expressions mathématiques (bibliothèque math Python complète).",
       "command": "uvx",
       "args": ["mcp-server-calculator"]
-    },
-
-
-    "playwright": {
-      "_comment": "Automatisation navigateur headless — navigation web, scraping, tests UI. Sidecar Docker (streamable-http).",
-      "type": "streamable-http",
-      "url": "http://playwright-mcp:8931/mcp"
-    },
-
-    "biomcp": {
-      "_comment": "Données biomédicales structurées — 12 entités sur 15+ sources : ClinVar, gnomAD, OpenFDA, ClinicalTrials.gov, ChEMBL, CPIC, PharmGKB, UniProt, Reactome. 14 workflows cliniques. Sidecar Docker (SSE).",
-      "type": "sse",
-      "url": "http://biomcp:8080/sse"
-    },
-
-    "context7": {
-      "_comment": "Documentation technique à jour pour les librairies de dev. Configuration remote officielle Context7.",
-      "type": "streamable-http",
-      "url": "https://mcp.context7.com/mcp",
-      "headers": {
-        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
-      }
     }
 
   }
