@@ -68,16 +68,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      qdrant:
-        condition: service_started
       redis:
         condition: service_healthy
-      tika:
-        condition: service_started
       litellm:
         condition: service_healthy
-      playwright-mcp:
-        condition: service_healthy
+      qdrant:
+        condition: service_started
+      tika:
+        condition: service_started
+      playwright:
+        condition: service_started
     restart: always
     networks:
       - llm-network
@@ -233,9 +233,9 @@ services:
   #   → Ajouter : http://playwright-mcp:8931/sse
   # ──────────────────────────────────────────────
 
-  playwright-mcp:
+  playwright:
     image: mcr.microsoft.com/playwright/mcp:latest
-    container_name: playwright-mcp
+    container_name: playwright
     command: ["--port", "8931", "--host", "0.0.0.0", "--headless", "--isolated"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8931/ || exit 1"]
