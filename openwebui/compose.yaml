@@ -116,7 +116,7 @@ services:
       # Playwright (outil natif OpenWebUI, connexion MCP SSE directe)
       PLAYWRIGHT_URL: "http://playwright:8931/sse"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9099/health || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:9099/health')\" || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
