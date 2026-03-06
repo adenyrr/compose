@@ -36,7 +36,7 @@ model_list:
 
   - model_name: pollinations/flux
     litellm_params:
-      model: klein-large
+      model: openai/klein-large
       api_base: https://gen.pollinations.ai/v1
       api_key: os.environ/POLLINATIONS_API_KEY
 
