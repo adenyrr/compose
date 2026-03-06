@@ -24,6 +24,16 @@ model_list:
       model: openrouter/arcee-ai/trinity-large-preview:free
       api_key: os.environ/OPENROUTER_API_KEY
 
+  - model_name: openrouter/kimi-k2.5
+    litellm_params:
+      model: openrouter/moonshotai/kimi-k2.5
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: openrouter/qwen3.5-flash
+    litellm_params:
+      model: openrouter/qwen/qwen3.5-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+
   - model_name: pollinations/flux
     litellm_params:
       model: klein-large

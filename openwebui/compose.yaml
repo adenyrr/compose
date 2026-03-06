@@ -13,7 +13,6 @@ services:
       - "3721:8080"
     volumes:
       - open-webui:/app/backend/data
-      - /sys/fs/cgroup:/sys/fs/cgroup:ro
       - mcp_uploads:/app/backend/data/uploads
     environment:
       # Database
@@ -50,9 +49,9 @@ services:
       # MCPO
       ENABLE_MCP_SERVERS: "true"
       MCP_SERVER_BASE_URL: "http://mcpo:8000"
-      # LiteLLM — proxy unique pour tous les LLM
-      OPENAI_API_BASE_URL: "http://litellm:4000/v1"
-      OPENAI_API_KEY: "${LITELLM_MASTER_KEY}"
+      # LiteLLM + Pipelines (Alyx) — multi-source
+      OPENAI_API_BASE_URLS: "http://litellm:4000/v1;http://pipelines:9099"
+      OPENAI_API_KEYS: "${LITELLM_MASTER_KEY};${PIPELINES_API_KEY}"
       #SSO
       ENABLE_OAUTH_SIGNUP: ${ENABLE_OAUTH_SIGNUP}
       OAUTH_MERGE_ACCOUNTS_BY_EMAIL: ${OAUTH_MERGE_ACCOUNTS_BY_EMAIL}
@@ -72,11 +71,64 @@ services:
         condition: service_healthy
       litellm:
         condition: service_healthy
+      pipelines:
+        condition: service_healthy
       qdrant:
         condition: service_started
       tika:
         condition: service_started
       playwright:
+        condition: service_started
+    restart: always
+    networks:
+      - llm-network
+
+  # ──────────────────────────────────────────────
+  # PIPELINES — LangGraph multi-agent (Alyx)
+  # ──────────────────────────────────────────────
+
+  pipelines:
+    image: ghcr.io/open-webui/pipelines:main
+    container_name: pipelines
+    # Port interne uniquement — OpenWebUI s'y connecte via le réseau Docker
+    # ports:
+    #   - "9099:9099"
+    volumes:
+      - ./sub_agents:/app/pipelines
+      - ./skills:/app/pipelines/skills:ro
+    environment:
+      PIPELINES_API_KEY: "${PIPELINES_API_KEY}"
+      # LiteLLM proxy interne
+      LITELLM_URL: "http://litellm:4000/v1"
+      LITELLM_API_KEY: "${LITELLM_MASTER_KEY}"
+      # MCP proxy interne
+      MCPO_URL: "http://mcpo:8000"
+      # Qdrant
+      QDRANT_URI: "http://qdrant:6333"
+      QDRANT_API_KEY: "${QDRANT_API_KEY}"
+      # PostgreSQL — base dédiée LangGraph
+      DATABASE_URL: "postgresql://${PG_USER:-openwebui}:${PG_PASS}@postgres:5432/langgraph"
+      # Open Terminal (bash MCP)
+      OPEN_TERMINAL_URL: "http://open-terminal:8000"
+      OPEN_TERMINAL_API_KEY: "${OPEN_TERMINAL_API_KEY}"
+      # Context7 (cloud public)
+      CONTEXT7_API_KEY: "${CONTEXT7_API_KEY:-}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9099/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+      mcpo:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      open-terminal:
         condition: service_started
     restart: always
     networks:
