@@ -115,7 +115,7 @@ litellm_settings:
   request_timeout: 600          # secondes
   num_retries: 3
   context_window_fallbacks:
-    - openrouter/gpt-4o: [openrouter/gpt-4o-mini]
+    - openrouter/gpt-oss: [openrouter/gpt-oss-120b]
 
   # Cache via Redis DB 1 (séparé d'OpenWebUI qui utilise DB 0)
   cache: true

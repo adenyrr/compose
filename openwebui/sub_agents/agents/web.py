@@ -1,19 +1,22 @@
 """
 Web Agent — navigation, scraping et recherche web.
 Modèle : GPT-OSS 120B.
-Outil : playwright via MCPO (navigation Chromium headless).
+Outil : playwright MCP (service natif OpenWebUI, connexion SSE directe).
+
+Playwright est fourni comme outil natif par le service playwright du compose.
+La connexion se fait via MCP SSE sur http://playwright:8931/sse,
+évité de passer par MCPO (playwright n'y est pas configuré).
 """
 
 from __future__ import annotations
 
-import json
 import os
 from typing import TYPE_CHECKING
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from tools.mcpo_client import call_tool
+from tools.playwright_client import fetch_url, search_web
 
 if TYPE_CHECKING:
     from graph.state import AlyxState
@@ -34,21 +37,15 @@ async def run(state: "AlyxState") -> dict:
     messages = state.get("messages", [])
     user_text = _last_user_message(messages)
 
-    # Tenter une navigation/recherche avec playwright
+    # Navigation via playwright MCP SSE (outil natif OpenWebUI)
     browser_result = ""
     try:
-        # Chercher une URL dans la query
         url = _extract_url(user_text)
         if url:
-            nav = await call_tool("playwright", "browser_navigate", {"url": url})
-            content = await call_tool("playwright", "browser_get_content", {})
-            browser_result = f"Page: {url}\n{json.dumps(content, ensure_ascii=False)[:3000]}"
+            browser_result = await fetch_url(url)
+            browser_result = f"Page: {url}\n{browser_result}"
         else:
-            # DuckDuckGo via playwright si pas d'URL directe
-            search_url = f"https://duckduckgo.com/?q={user_text.replace(' ', '+')}&ia=web"
-            await call_tool("playwright", "browser_navigate", {"url": search_url})
-            snapshot = await call_tool("playwright", "browser_snapshot", {})
-            browser_result = json.dumps(snapshot, ensure_ascii=False)[:3000]
+            browser_result = await search_web(user_text)
     except Exception as exc:
         browser_result = f"Browser navigation failed: {exc}"
 
