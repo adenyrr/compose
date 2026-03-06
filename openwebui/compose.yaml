@@ -97,6 +97,7 @@ services:
       - ./sub_agents:/app/pipelines
       - ./skills:/app/pipelines/skills:ro
     environment:
+      PIPELINES_REQUIREMENTS_PATH: "/app/pipelines/requirements.txt"
       PIPELINES_API_KEY: "${PIPELINES_API_KEY}"
       # LiteLLM proxy interne
       LITELLM_URL: "http://litellm:4000/v1"
