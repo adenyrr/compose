@@ -1,6 +1,6 @@
 # title: Alyx
 # author: Homelab
-# version: 1.0.0
+# version: 1.1.0
 # requirements: langgraph>=0.2, langchain-core>=0.3, langchain-openai>=0.2, langgraph-checkpoint-postgres, psycopg[binary,pool], httpx>=0.27, mcp
 
 """
@@ -21,17 +21,21 @@ Flux d'un message :
 from __future__ import annotations
 
 import asyncio
-import json
 import os
-import re
+import sys
+
+# Garantit que graph/, agents/, tools/ sont importables depuis /app/pipelines/
+_PIPELINES_DIR = os.path.dirname(os.path.abspath(__file__))
+if _PIPELINES_DIR not in sys.path:
+    sys.path.insert(0, _PIPELINES_DIR)
+
 from typing import AsyncGenerator
 
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_openai import ChatOpenAI
 
-from graph.builder import build_graph
-from graph.state import AlyxState
-import agents.memory_agent as memory_mod
+# NB : graph/ et agents/ sont importés en lazy (dans _get_graph / pipe)
+# pour éviter qu'une erreur d'import profonde empêche la classe Pipeline de se charger.
 
 _LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1")
 _LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
@@ -123,11 +127,9 @@ class Pipeline:
             return self._graph
         async with self._graph_lock:
             if self._graph is None:
+                from graph.builder import build_graph  # lazy — erreurs isolées du chargement
                 self._graph = await build_graph(_DB_URL)
         return self._graph
-
-    def pipelines(self) -> list[dict]:
-        return [{"id": "alyx", "name": "Alyx"}]
 
     async def pipe(
         self,
@@ -152,7 +154,7 @@ class Pipeline:
         chat_id = body.get("chat_id", body.get("session_id", "default"))
         config = {"configurable": {"thread_id": chat_id}}
 
-        initial_state: AlyxState = {
+        initial_state = {
             "messages": lc_messages,
             "images_b64": images_b64,
             "routing": [],
@@ -222,13 +224,14 @@ class Pipeline:
                 yield chunk.content
 
         # 4. Condensation mémoire en arrière-plan (fire-and-forget)
-        final_state: AlyxState = {
+        final_state = {
             "messages": lc_messages + [HumanMessage(content=user_message)],
             "images_b64": images_b64,
             "routing": [],
             "agent_outputs": agent_outputs,
             "artifacts": artifacts,
         }
+        import agents.memory_agent as memory_mod  # lazy
         asyncio.create_task(memory_mod.run_bg(final_state))
 
 
