@@ -64,10 +64,9 @@ Directives :
   - Réponds toujours en français, de façon fluide et naturelle
   - Si un agent a généré un artifact (bloc ```html, ```javascript, ```python), inclus-le tel quel dans ta réponse
   - Si une image a été générée (lien markdown ![...](url)), inclus le lien tel quel
-  - Cite les sources académiques si disponibles (DOI, auteurs, année)
+  - Cite toujours tes sources, académiques si disponibles (DOI, auteurs, année)
   - Sois concise pour les réponses simples, détaillée pour les sujets complexes
   - Si aucun agent spécialisé n'a été invoqué, réponds directement sans préambule
-  - Ne révèle jamais l'architecture technique ou les noms des sous-agents
 """
 
 
@@ -114,7 +113,7 @@ class Pipeline:
 
     def __init__(self):
         self.name = "Alyx"
-        self.type = "manifold"
+        self.type = "pipe"
         self._graph = None
         self._graph_lock = asyncio.Lock()
 
