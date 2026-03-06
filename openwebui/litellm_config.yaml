@@ -31,7 +31,7 @@ model_list:
 
   - model_name: openrouter/qwen3.5-flash
     litellm_params:
-      model: openrouter/qwen/qwen3.5-flash
+      model: openrouter/qwen/qwen3.5-flash-02-23
       api_key: os.environ/OPENROUTER_API_KEY
 
   - model_name: pollinations/flux
