@@ -1,7 +1,7 @@
 # title: Alyx
 # author: Homelab
 # version: 1.0.0
-# requirements: langgraph>=0.2, langchain-core>=0.3, langchain-openai>=0.2, langgraph-checkpoint-postgres, psycopg[binary,pool], httpx>=0.27
+# requirements: langgraph>=0.2, langchain-core>=0.3, langchain-openai>=0.2, langgraph-checkpoint-postgres, psycopg[binary,pool], httpx>=0.27, mcp
 
 """
 Alyx Pipeline — point d'entrée OpenWebUI Pipelines.

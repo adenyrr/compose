@@ -159,7 +159,7 @@ services:
       UI_PASSWORD: "${LITELLM_UI_PASSWORD}"
       # Clés fournisseurs (toutes optionnelles, selon usage)
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
-      OPENROUTER_API_BASE: "${OPENROUTER_API_BASE:-https://api.openrouter.ai}"
+      OPENROUTER_API_BASE: "${OPENROUTER_API_BASE:-https://openrouter.ai/api/v1}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       MISTRAL_API_KEY: "${MISTRAL_API_KEY:-}"
