@@ -2,7 +2,7 @@
 title: Alyx
 author: adenyrr
 version: 1.3.0
-requirements: langgraph>=0.2, langchain-core>=0.3, langchain-openai>=0.2, langgraph-checkpoint-postgres, psycopg[binary,pool], httpx>=0.27, mcp, openai>=1.0
+requirements: langgraph>=0.2, langchain-core>=0.3, langchain-openai>=0.2, langgraph-checkpoint-postgres, psycopg, httpx>=0.27, mcp, openai>=1.0, pydantic>=2.0
 """
 
 """
@@ -19,8 +19,6 @@ Flux d'un message :
   4. Condensation mémoire en arrière-plan (fire-and-forget)
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 import sys
@@ -31,9 +29,15 @@ _PIPELINES_DIR = os.path.dirname(os.path.abspath(__file__))
 if _PIPELINES_DIR not in sys.path:
     sys.path.insert(0, _PIPELINES_DIR)
 
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from openai import OpenAI
-from pydantic import BaseModel, Field
+# Pydantic est nécessaire à la définition de Valves (module level).
+# On l'importe avec un fallback pour garantir que le module charge
+# même avant que les requirements soient installés.
+try:
+    from pydantic import BaseModel, Field
+except ImportError:  # premier chargement, avant install des deps
+    BaseModel = object  # type: ignore[assignment,misc]
+    def Field(default=None, **_kwargs):  # type: ignore[misc]
+        return default
 
 # Valeurs d'environnement — servent de défauts pour les Valves
 _LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1")
@@ -74,6 +78,7 @@ Directives :
 
 def _convert_messages(messages: list[dict]) -> list:
     """Convertit le format OpenWebUI en messages LangChain."""
+    from langchain_core.messages import HumanMessage, AIMessage  # lazy
     lc_messages = []
     for m in messages:
         role = m.get("role", "")
@@ -184,6 +189,8 @@ class Pipeline:
         """
 
         # 1. Préparer l'état initial
+        from langchain_core.messages import HumanMessage  # lazy
+        from openai import OpenAI  # lazy
         lc_messages = _convert_messages(messages)
         images_b64 = _extract_images_b64(messages)
 

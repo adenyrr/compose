@@ -1,0 +1,114 @@
+# Generic Python
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*.egg-info/
+pip-wheel-metadata/
+*.whl
+
+# Virtual environments
+venv/
+.venv/
+env/
+venv*/
+
+# Pytest / coverage / testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+
+# Mypy / caches
+.mypy_cache/
+.pyre/
+.cache/
+
+# Logs
+*.log
+logs/
+
+# Environment / secrets
+.env
+.env.*
+secrets.env
+# keep example.env files in repo
+!**/example.env
+
+# IDEs / editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker / compose
+docker-compose.override.yml
+compose.override.yml
+*.pid
+*.sock
+
+# Node / frontend
+node_modules/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Editor temporary files
+*~
+*.swp
+
+# Keys / certs
+*.pem
+*.key
+
+# LangGraph / checkpoints / DBs
+langgraph_checkpoints/
+*.langgraph
+*.checkpoint
+*.sqlite3
+*.sqlite
+*.db
+
+# LiteLLM / MCPO / local service configs and caches
+litellm_config.json
+mcpo_config.json
+mcpo/
+.playwright/
+playwright/reports/
+
+# OpenWebUI specific
+openwebui/__pycache__/
+openwebui/*.pyc
+openwebui/.venv/
+openwebui/.env
+openwebui/.cache/
+openwebui/.mcpo/
+openwebui/sub_agents/__pycache__/
+openwebui/sub_agents/*.pyc
+openwebui/sub_agents/.venv/
+openwebui/sub_agents/.env
+openwebui/sub_agents/*.sqlite
+openwebui/sub_agents/*.db
+openwebui/sub_agents/*.log
+openwebui/sub_agents/*.pid
+openwebui/sub_agents/.mypy_cache/
+
+# Temporary / local files
+*.tmp
+*.bak
+
+# Prevent accidentally committing large files
+*.tar
+*.zip
+*.gz
+*.tgz
+
+# Allow the user to override (untracked) default ignore behaviour
+!.gitignore.local
