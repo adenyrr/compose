@@ -107,13 +107,20 @@ async def run_bg(state: "AlyxState", model: str | None = None) -> None:
         if not facts_text:
             return
 
-        # Stocker chaque fait dans le knowledge graph
+        # S'assurer que l'entité racine existe (idempotent — ignoré si déjà créée)
+        try:
+            await call_tool("memory", "create_entities", {
+                "entities": [{"name": "Alyx-Context", "entityType": "ConversationContext", "observations": []}]
+            })
+        except Exception:
+            pass  # Entité déjà existante — pas un problème
+
+        # Stocker tous les faits en un seul appel
         facts = [f.strip("• ").strip() for f in facts_text.split("\n") if f.strip()]
-        for fact in facts:
-            if fact:
-                await call_tool("memory", "add_observations", {
-                    "observations": [{"entityName": "Alyx-Context", "contents": [fact]}]
-                })
+        if facts:
+            await call_tool("memory", "add_observations", {
+                "observations": [{"entityName": "Alyx-Context", "contents": facts}]
+            })
     except Exception:
         pass  # Silencieux — ne doit jamais bloquer la réponse principale
 

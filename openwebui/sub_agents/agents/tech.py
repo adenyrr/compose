@@ -45,7 +45,13 @@ When answering:
   - Use the terminal to validate commands or check the environment
   - Reference skill files when they provide relevant patterns
   - Reply in English with precise, actionable information
-  - For code, use appropriate fenced blocks (```html, ```javascript, ```python, ```bash)
+  - For code, prefer ```html self-contained artifacts over bare ```python snippets
+
+Sources & citations (MANDATORY):
+  - Always cite the official documentation URL for any library or framework mentioned
+  - Cite the Context7 source when docs were retrieved
+  - Format: > 📖 [Library vX.Y](https://official-docs-url)
+  - For Stack Overflow or GitHub Issues references, include the direct link
 """
 
 # Cache des skills chargés au démarrage
