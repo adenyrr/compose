@@ -33,7 +33,7 @@ Reply in English.
 """
 
 
-async def run(state: "AlyxState") -> dict:
+async def run(state: "AlyxState", model: str | None = None) -> dict:
     messages = state.get("messages", [])
     user_text = _last_user_message(messages)
 
@@ -50,7 +50,7 @@ async def run(state: "AlyxState") -> dict:
         browser_result = f"Browser navigation failed: {exc}"
 
     llm = ChatOpenAI(
-        model=_MODEL,
+        model=model or _MODEL,
         base_url=_LITELLM_URL,
         api_key=_LITELLM_API_KEY,
         temperature=0.2,

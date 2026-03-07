@@ -19,7 +19,7 @@ _MODEL = "pollinations/flux"  # pointe vers klein-large dans litellm_config.yaml
 _TIMEOUT = 120.0
 
 
-async def run(state: "AlyxState") -> dict:
+async def run(state: "AlyxState", model: str | None = None) -> dict:
     messages = state.get("messages", [])
     user_text = _last_user_message(messages)
 
@@ -31,7 +31,7 @@ async def run(state: "AlyxState") -> dict:
             resp = await client.post(
                 f"{_LITELLM_URL}/images/generations",
                 headers={"Authorization": f"Bearer {_LITELLM_API_KEY}"},
-                json={"model": _MODEL, "prompt": prompt, "n": 1, "size": "1024x1024"},
+                json={"model": model or _MODEL, "prompt": prompt, "n": 1, "size": "1024x1024"},
             )
             resp.raise_for_status()
             data: dict[str, Any] = resp.json()

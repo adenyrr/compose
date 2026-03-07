@@ -1,7 +1,7 @@
 """
 title: Alyx
 author: adenyrr
-version: 1.2.0
+version: 1.3.0
 requirements: langgraph>=0.2, langchain-core>=0.3, langchain-openai>=0.2, langgraph-checkpoint-postgres, psycopg[binary,pool], httpx>=0.27, mcp, openai>=1.0
 """
 
@@ -33,11 +33,12 @@ if _PIPELINES_DIR not in sys.path:
 
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from openai import OpenAI
+from pydantic import BaseModel, Field
 
+# Valeurs d'environnement — servent de défauts pour les Valves
 _LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1")
 _LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
 _DB_URL = os.environ.get("DATABASE_URL", "")
-_ALYX_MODEL = "openrouter/gpt-oss"
 
 # Icônes de statut par agent
 _AGENT_ICONS = {
@@ -109,11 +110,39 @@ def _extract_images_b64(messages: list[dict]) -> list[str]:
 
 
 class Pipeline:
-    class Valves:
-        pass
+    class Valves(BaseModel):
+        # --- Connexion ---
+        litellm_url: str = Field(default=_LITELLM_URL, description="LiteLLM API URL")
+        litellm_api_key: str = Field(default=_LITELLM_API_KEY, description="LiteLLM API key")
+        db_url: str = Field(default=_DB_URL, description="PostgreSQL connection string (LangGraph checkpoint)")
+        # --- Alyx (synthèse finale) ---
+        alyx_model: str = Field(default="openrouter/gpt-oss", description="Modèle de synthèse finale d'Alyx")
+        alyx_temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Température de synthèse Alyx")
+        history_messages: int = Field(default=12, ge=2, le=40, description="Nombre de messages d'historique envoyés à Alyx")
+        # --- Comportement ---
+        stream_agent_status: bool = Field(default=True, description="Streamer une ligne de statut avant la réponse (agents invoqués)")
+        enable_memory_bg: bool = Field(default=True, description="Activer la condensation mémoire en arrière-plan")
+        # --- Superviseur ---
+        supervisor_model: str = Field(default="openrouter/gpt-oss", description="Modèle du superviseur (routage)")
+        # --- Modèles agents ---
+        model_vision: str = Field(default="openrouter/qwen3.5-flash", description="Modèle Vision")
+        model_scholar: str = Field(default="openrouter/gpt-oss", description="Modèle Scholar")
+        model_coder: str = Field(default="openrouter/kimi-k2.5", description="Modèle Coder")
+        model_tech: str = Field(default="openrouter/kimi-k2.5", description="Modèle Tech")
+        model_web: str = Field(default="openrouter/gpt-oss", description="Modèle Web")
+        model_media: str = Field(default="openrouter/gpt-oss", description="Modèle Media")
+        model_data: str = Field(default="openrouter/gpt-oss", description="Modèle Data")
+        model_memory: str = Field(default="openrouter/gpt-oss", description="Modèle Memory")
+        model_image_gen: str = Field(default="pollinations/flux", description="Modèle ImageGen")
+        model_rag: str = Field(default="openrouter/gpt-oss", description="Modèle RAG")
 
     def __init__(self):
         self.name = "Alyx"
+        self.valves = self.Valves()
+        self._graph = None
+
+    def on_valves_updated(self):
+        """Invalide le graphe pour forcer un rebuild avec les nouveaux paramètres."""
         self._graph = None
 
     def _ensure_graph(self):
@@ -121,9 +150,22 @@ class Pipeline:
         if self._graph is not None:
             return self._graph
         from graph.builder import build_graph
+        models = {
+            "supervisor": self.valves.supervisor_model,
+            "vision":     self.valves.model_vision,
+            "scholar":    self.valves.model_scholar,
+            "coder":      self.valves.model_coder,
+            "tech":       self.valves.model_tech,
+            "web":        self.valves.model_web,
+            "media":      self.valves.model_media,
+            "data":       self.valves.model_data,
+            "memory":     self.valves.model_memory,
+            "image_gen":  self.valves.model_image_gen,
+            "rag":        self.valves.model_rag,
+        }
         loop = asyncio.new_event_loop()
         try:
-            self._graph = loop.run_until_complete(build_graph(_DB_URL))
+            self._graph = loop.run_until_complete(build_graph(self.valves.db_url, models))
         finally:
             loop.close()
         return self._graph
@@ -180,9 +222,19 @@ class Pipeline:
         # 3. Synthèse finale streamée par Alyx (client sync OpenAI)
         synthesis_context = _build_synthesis_context(agent_outputs, artifacts)
 
+        # Ligne de statut agents (optionnelle)
+        if self.valves.stream_agent_status and agent_outputs:
+            labels = " · ".join(
+                _AGENT_ICONS.get(name, name)
+                for name in agent_outputs
+                if agent_outputs[name] and agent_outputs[name].strip()
+            )
+            if labels:
+                yield f"> *Agents : {labels}*\n\n"
+
         synth_messages = [{"role": "system", "content": _ALYX_SYSTEM}]
-        # Historique récent (max 6 échanges)
-        for m in messages[-12:]:
+        # Historique récent
+        for m in messages[-self.valves.history_messages:]:
             synth_messages.append({"role": m.get("role", "user"), "content": m.get("content", "")})
 
         if synthesis_context:
@@ -193,11 +245,11 @@ class Pipeline:
         else:
             synth_messages.append({"role": "user", "content": user_message})
 
-        client = OpenAI(base_url=_LITELLM_URL, api_key=_LITELLM_API_KEY)
+        client = OpenAI(base_url=self.valves.litellm_url, api_key=self.valves.litellm_api_key)
         stream = client.chat.completions.create(
-            model=_ALYX_MODEL,
+            model=self.valves.alyx_model,
             messages=synth_messages,
-            temperature=0.7,
+            temperature=self.valves.alyx_temperature,
             stream=True,
         )
         for chunk in stream:
@@ -206,20 +258,21 @@ class Pipeline:
                 yield delta.content
 
         # 4. Condensation mémoire en arrière-plan (fire-and-forget)
-        try:
-            bg_loop = asyncio.new_event_loop()
-            final_state = {
-                "messages": lc_messages + [HumanMessage(content=user_message)],
-                "images_b64": images_b64,
-                "routing": [],
-                "agent_outputs": agent_outputs,
-                "artifacts": artifacts,
-            }
-            import agents.memory_agent as memory_mod
-            bg_loop.run_until_complete(memory_mod.run_bg(final_state))
-            bg_loop.close()
-        except Exception:
-            pass  # ne jamais bloquer la réponse pour la mémoire
+        if self.valves.enable_memory_bg:
+            try:
+                bg_loop = asyncio.new_event_loop()
+                final_state = {
+                    "messages": lc_messages + [HumanMessage(content=user_message)],
+                    "images_b64": images_b64,
+                    "routing": [],
+                    "agent_outputs": agent_outputs,
+                    "artifacts": artifacts,
+                }
+                import agents.memory_agent as memory_mod
+                bg_loop.run_until_complete(memory_mod.run_bg(final_state))
+                bg_loop.close()
+            except Exception:
+                pass  # ne jamais bloquer la réponse pour la mémoire
 
     @staticmethod
     async def _run_graph(graph, initial_state: dict, config: dict):

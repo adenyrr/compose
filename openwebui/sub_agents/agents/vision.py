@@ -25,7 +25,7 @@ Return a structured, factual description in English for the main agent to use.
 """
 
 
-async def run(state: "AlyxState") -> dict:
+async def run(state: "AlyxState", model: str | None = None) -> dict:
     images_b64 = state.get("images_b64", [])
     messages = state.get("messages", [])
 
@@ -33,7 +33,7 @@ async def run(state: "AlyxState") -> dict:
         return {"agent_outputs": {"vision": "No images provided."}}
 
     llm = ChatOpenAI(
-        model=_MODEL,
+        model=model or _MODEL,
         base_url=_LITELLM_URL,
         api_key=_LITELLM_API_KEY,
         temperature=0.1,

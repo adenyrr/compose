@@ -60,25 +60,27 @@ def _merge_agent_output(state: AlyxState, agent_name: str, output: dict) -> Alyx
     return {**state, "agent_outputs": current_outputs, "artifacts": current_artifacts}
 
 
-async def build_graph(db_url: str):
+async def build_graph(db_url: str, models: dict | None = None):
     """
     Construit et compile le graphe LangGraph avec persistance PostgreSQL.
 
     Args:
         db_url: connection string PostgreSQL pour LangGraph (DB langgraph).
+        models: dict optionnel de modèles par nom de nœud (supervisor, vision, …).
 
     Returns:
         Graphe compilé prêt à l'usage.
     """
+    _models = models or {}
     builder = StateGraph(AlyxState)
 
     # Nœud superviseur
-    builder.add_node("supervisor", route)
+    builder.add_node("supervisor", partial(route, model=_models.get("supervisor")))
     builder.set_entry_point("supervisor")
 
     # Nœuds agents
     for name, fn in _AGENT_MAP.items():
-        builder.add_node(name, fn)
+        builder.add_node(name, partial(fn, model=_models.get(name)))
 
     # Edge conditionnel depuis le superviseur → agents ou END
     builder.add_conditional_edges(

@@ -79,7 +79,7 @@ Examples:
 """
 
 
-async def route(state: "AlyxState") -> "AlyxState":
+async def route(state: "AlyxState", model: str | None = None) -> "AlyxState":
     """
     Nœud superviseur — détermine les agents à invoquer et met à jour state['routing'].
     """
@@ -96,7 +96,7 @@ async def route(state: "AlyxState") -> "AlyxState":
     routing_prompt = f"{user_text}{images_note}"
 
     llm = ChatOpenAI(
-        model=_MODEL,
+        model=model or _MODEL,
         base_url=_LITELLM_URL,
         api_key=_LITELLM_API_KEY,
         temperature=0,
