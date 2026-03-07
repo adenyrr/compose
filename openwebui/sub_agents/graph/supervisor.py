@@ -61,13 +61,24 @@ Rules:
   - Return at most 3 agents per turn to avoid context bloat.
   - If images are attached, ALWAYS include "vision".
   - "memory" can be combined with any other agent when context recall seems useful.
-  - Prefer specialization: "tech" over "coder" when the question is about a specific library.
-  - "coder" AND "tech" together only if both code generation AND library docs are needed.
+  - Prefer "coder" for generic code generation; prefer "tech" when a specific named library is the focus.
+  - Use ["coder", "tech"] when the request is to CREATE an artifact using a specific library (both needed).
+  - Never return "tech" alone for a code creation task — "coder" must be included.
 
 Examples:
   "What studies exist on working memory?" → ["scholar"]
+  "Write a Python script to parse JSON" → ["coder"]
+  "Écris moi un script Python pour parser du JSON" → ["coder"]
   "Create an interactive bubble chart" → ["coder"]
+  "Fais moi un graphique de données interactif" → ["coder"]
+  "Create a 3D spinning cube with Three.js" → ["coder", "tech"]
+  "Crée moi une visualisation 3D avec Three.js" → ["coder", "tech"]
+  "Build a dashboard with Chart.js" → ["coder", "tech"]
+  "Construis un dashboard avec Chart.js" → ["coder", "tech"]
   "How do I use the Leaflet.js clustering plugin?" → ["tech"]
+  "How does React's useEffect hook work?" → ["tech"]
+  "Comment puis-je utiliser React Router?" → ["tech"]
+  "Debug this Python traceback: ..." → ["coder"]
   "Summarize this YouTube video: https://..." → ["media"]
   "Generate a misty forest image" → ["image_gen"]
   "[image attached] What's in this chart?" → ["vision"]
@@ -76,6 +87,7 @@ Examples:
   "Search for recent news about LLMs" → ["web"]
   "What does my uploaded report say about Q3?" → ["rag"]
   "Hello, how are you?" → []
+  "Bonjour, comment vas-tu ?" → []
 """
 
 
@@ -100,7 +112,7 @@ async def route(state: "AlyxState", model: str | None = None) -> "AlyxState":
         base_url=_LITELLM_URL,
         api_key=_LITELLM_API_KEY,
         temperature=0,
-        max_tokens=64,
+        max_tokens=128,
     )
 
     try:

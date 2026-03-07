@@ -127,6 +127,7 @@ class Pipeline:
         history_messages: int = Field(default=12, ge=2, le=40, description="Nombre de messages d'historique envoyés à Alyx")
         # --- Comportement ---
         stream_agent_status: bool = Field(default=True, description="Streamer une ligne de statut avant la réponse (agents invoqués)")
+        show_model_footer: bool = Field(default=True, description="Afficher un pied de page après la réponse (modèle + agents)")
         enable_memory_bg: bool = Field(default=True, description="Activer la condensation mémoire en arrière-plan")
         # --- Superviseur ---
         supervisor_model: str = Field(default="openrouter/gpt-oss", description="Modèle du superviseur (routage)")
@@ -287,7 +288,20 @@ class Pipeline:
             if delta.content:
                 yield delta.content
 
-        # 4. Condensation mémoire en arrière-plan (true fire-and-forget)
+        # 4. Pied de page modèle + agents (optionnel)
+        if self.valves.show_model_footer:
+            footer_labels = " · ".join(
+                _AGENT_ICONS.get(name, name)
+                for name in agent_outputs
+                if agent_outputs[name] and agent_outputs[name].strip()
+            )
+            footer = f"\n\n---\n*🤖 `{self.valves.alyx_model}`"
+            if footer_labels:
+                footer += f" — {footer_labels}"
+            footer += "*"
+            yield footer
+
+        # 5. Condensation mémoire en arrière-plan (true fire-and-forget)
         if self.valves.enable_memory_bg:
             try:
                 import agents.memory_agent as memory_mod

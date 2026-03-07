@@ -49,8 +49,24 @@ When answering:
 """
 
 # Cache des skills chargés au démarrage
-_skills_cache: dict[str, str] = {}
+_skills_cache: dict[str, str] = {}   # name → full content
+_skills_meta: dict[str, str] = {}    # name → description text
 _SKILLS_DIR = Path("/app/pipelines/skills")
+
+# Mots vides FR + EN ignorés lors du matching
+_STOPWORDS = {
+    "a", "an", "the", "is", "in", "to", "how", "do", "can", "me", "i", "for", "of",
+    "with", "this", "my", "any", "and", "or", "it", "that", "on", "what", "use",
+    "get", "have", "be", "are", "was", "will", "by", "at", "as", "from", "make",
+    "build", "show", "give", "let", "want", "need", "please", "help",
+    # FR
+    "de", "du", "le", "la", "les", "un", "une", "des", "je", "tu", "il", "nous",
+    "vous", "ils", "mon", "ma", "mes", "ton", "ta", "tes", "son", "sa", "ses",
+    "que", "qui", "quoi", "quel", "quelle", "faire", "fait", "fais", "avec",
+    "sans", "mais", "ou", "et", "si", "car", "est", "sur", "par", "pour", "dans",
+    "ce", "cet", "ces", "moi", "toi", "lui", "suis", "veux", "peux", "dois",
+    "crée", "crée-moi", "génère", "fais-moi", "affiche",
+}
 
 
 def _load_skills() -> None:
@@ -60,25 +76,46 @@ def _load_skills() -> None:
     for skill_file in _SKILLS_DIR.glob("*.md"):
         try:
             content = skill_file.read_text(encoding="utf-8")
-            # Extraire le name du frontmatter si présent
             name_match = re.search(r"^name:\s*(.+)$", content, re.MULTILINE)
             key = name_match.group(1).strip() if name_match else skill_file.stem
+            desc_match = re.search(r"^description:\s*(.+)$", content, re.MULTILINE)
             _skills_cache[key] = content
+            _skills_meta[key] = desc_match.group(1).strip() if desc_match else ""
         except Exception:
             pass
 
 
 def _find_relevant_skills(query: str) -> str:
-    """Retourne le contenu des skills dont le nom ou la description correspond à la query."""
+    """Retourne les skills les plus pertinents pour la query, scorés par nom + description."""
     _load_skills()
     query_lower = query.lower()
-    relevant = []
+    query_words = {w for w in re.split(r"\W+", query_lower) if len(w) > 3 and w not in _STOPWORDS}
+
+    scored: list[tuple[int, str, str]] = []
     for name, content in _skills_cache.items():
-        # Correspondance sur le nom du skill ou les 3 premières lignes
-        header = "\n".join(content.split("\n")[:5]).lower()
-        if name.lower() in query_lower or any(word in header for word in query_lower.split()):
-            relevant.append(f"### Skill: {name}\n{content[:2000]}")
-    return "\n\n".join(relevant[:2])  # Max 2 skills pour ne pas saturer le contexte
+        score = 0
+        name_lower = name.lower()
+
+        # Correspondance exacte sur le nom du skill
+        if name_lower in query_lower:
+            score += 10
+        else:
+            # Correspondance sur les parties du nom (ex: "three" dans "threejs-3d")
+            for part in re.split(r"[-_.]", name_lower):
+                if len(part) > 3 and part in query_lower:
+                    score += 5
+
+        # Correspondance sur la description (mots-clés significatifs)
+        desc = _skills_meta.get(name, "").lower()
+        if desc and query_words:
+            matches = sum(1 for w in query_words if w in desc)
+            score += min(matches, 5)  # cap à 5 pour éviter la surpondération
+
+        if score > 0:
+            scored.append((score, name, content))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return "\n\n".join(f"### Skill: {n}\n{c[:2000]}" for _, n, c in scored[:2])
 
 
 async def run(state: "AlyxState", model: str | None = None) -> dict:
