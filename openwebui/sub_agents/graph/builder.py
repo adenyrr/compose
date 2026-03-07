@@ -22,8 +22,7 @@ from graph.state import AlyxState
 from graph.supervisor import route
 import agents.vision as vision_agent
 import agents.scholar as scholar_agent
-import agents.coder as coder_agent
-import agents.tech as tech_agent
+import agents.dev as dev_agent
 import agents.web as web_agent
 import agents.media as media_agent
 import agents.data as data_agent
@@ -34,8 +33,7 @@ import agents.rag_agent as rag_agent
 _AGENT_MAP: dict[str, Callable] = {
     "vision":    vision_agent.run,
     "scholar":   scholar_agent.run,
-    "coder":     coder_agent.run,
-    "tech":      tech_agent.run,
+    "dev":       dev_agent.run,
     "web":       web_agent.run,
     "media":     media_agent.run,
     "data":      data_agent.run,

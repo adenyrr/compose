@@ -21,6 +21,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from tools.mcpo_client import call_tool
+from tools.context7_client import get_library_docs, resolve_library_id
 
 if TYPE_CHECKING:
     from graph.state import AlyxState
@@ -83,7 +84,39 @@ def _find_relevant_skills(query: str) -> str:
         if score > 0:
             scored.append((score, name, content))
     scored.sort(key=lambda x: x[0], reverse=True)
-    return "\n\n".join(f"### Skill: {n}\n{c[:2000]}" for _, n, c in scored[:2])
+    return "\n\n".join(f"### Skill: {n}\n{c[:6000]}" for _, n, c in scored[:2])
+
+
+async def _fetch_context7(query: str) -> str:
+    """Détecte les bibliothèques mentionnées et récupère leur doc Context7."""
+    known_libs = [
+        "leaflet", "react", "vue", "angular", "svelte", "tailwind", "bulma",
+        "chartjs", "chart.js", "d3", "plotly", "three.js", "threejs", "p5js", "p5",
+        "langchain", "langgraph", "fastapi", "django", "flask", "sqlalchemy",
+        "pandas", "numpy", "scipy", "sklearn", "tensorflow", "pytorch",
+        "docker", "kubernetes", "terraform", "ansible",
+        "shadcn", "gsap", "anime.js", "animejs", "konva", "jointjs",
+        "mermaid", "vis-network", "vis-timeline", "tabulator",
+        "recharts", "reveal.js", "mathjax", "prism", "tone.js",
+        "fullcalendar", "vis",
+    ]
+    query_lower = query.lower()
+    detected = next(
+        (lib for lib in known_libs
+         if lib.replace(".", "").replace("-", "") in query_lower.replace(".", "").replace("-", "")),
+        None,
+    )
+    if not detected:
+        return ""
+    try:
+        lib_id = await resolve_library_id(detected)
+        if not lib_id or "error" in lib_id.lower():
+            return ""
+        topic = query_lower.replace(detected, "").strip()[:80]
+        docs = await get_library_docs(lib_id, topic=topic, tokens=5000)
+        return docs
+    except Exception:
+        return ""
 
 _SYSTEM = """\
 You are an expert software engineer and creative front-end developer.
@@ -133,7 +166,12 @@ async def run(state: "AlyxState", model: str | None = None) -> dict:
     if skill_context:
         context_parts.append(f"## Relevant skills\n{skill_context}")
 
-    # 2. Contexte git si pertinent
+    # 2. Documentation Context7 si une librairie est mentionnée
+    lib_docs = await _fetch_context7(user_text)
+    if lib_docs:
+        context_parts.append(f"## Context7 documentation\n{lib_docs}")
+
+    # 3. Contexte git si pertinent
     if any(kw in user_text.lower() for kw in ["git", "commit", "diff", "branch", "repo"]):
         try:
             git_info = await call_tool("git", "git_status", {})

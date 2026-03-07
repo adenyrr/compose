@@ -121,7 +121,7 @@ def _find_relevant_skills(query: str) -> str:
             scored.append((score, name, content))
 
     scored.sort(key=lambda x: x[0], reverse=True)
-    return "\n\n".join(f"### Skill: {n}\n{c[:2000]}" for _, n, c in scored[:2])
+    return "\n\n".join(f"### Skill: {n}\n{c[:6000]}" for _, n, c in scored[:2])
 
 
 async def run(state: "AlyxState", model: str | None = None) -> dict:

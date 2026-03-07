@@ -49,8 +49,7 @@ _DB_URL = os.environ.get("DATABASE_URL", "")
 _AGENT_ICONS = {
     "vision":    "📷 Vision",
     "scholar":   "🔬 Scholar",
-    "coder":     "💻 Coder",
-    "tech":      "🔧 Tech",
+    "dev":       "⚙️ Dev",
     "web":       "🌐 Web",
     "media":     "🎬 Media",
     "data":      "📊 Data",
@@ -147,8 +146,7 @@ class Pipeline:
         # --- Modèles agents ---
         model_vision: str = Field(default="openrouter/qwen3.5-flash", description="Modèle Vision")
         model_scholar: str = Field(default="openrouter/gpt-oss", description="Modèle Scholar")
-        model_coder: str = Field(default="openrouter/kimi-k2.5", description="Modèle Coder")
-        model_tech: str = Field(default="openrouter/kimi-k2.5", description="Modèle Tech")
+        model_dev: str = Field(default="openrouter/kimi-k2.5", description="Modèle Dev (code + artifacts)")
         model_web: str = Field(default="openrouter/gpt-oss", description="Modèle Web")
         model_media: str = Field(default="openrouter/gpt-oss", description="Modèle Media")
         model_data: str = Field(default="openrouter/gpt-oss", description="Modèle Data")
@@ -203,8 +201,7 @@ class Pipeline:
             "supervisor": self.valves.supervisor_model,
             "vision":     self.valves.model_vision,
             "scholar":    self.valves.model_scholar,
-            "coder":      self.valves.model_coder,
-            "tech":       self.valves.model_tech,
+            "dev":        self.valves.model_dev,
             "web":        self.valves.model_web,
             "media":      self.valves.model_media,
             "data":       self.valves.model_data,
@@ -244,7 +241,10 @@ class Pipeline:
         images_b64 = _extract_images_b64(messages)
 
         chat_id = body.get("chat_id", body.get("session_id", "default"))
-        config = {"configurable": {"thread_id": chat_id}}
+        config = {"configurable": {
+            "thread_id": chat_id,
+            "event_emitter": __event_emitter__ if self.valves.realtime_status else None,
+        }}
 
         initial_state = {
             "messages": lc_messages,
@@ -319,8 +319,7 @@ class Pipeline:
             _agent_models = {
                 "vision":    self.valves.model_vision,
                 "scholar":   self.valves.model_scholar,
-                "coder":     self.valves.model_coder,
-                "tech":      self.valves.model_tech,
+                "dev":       self.valves.model_dev,
                 "web":       self.valves.model_web,
                 "media":     self.valves.model_media,
                 "data":      self.valves.model_data,

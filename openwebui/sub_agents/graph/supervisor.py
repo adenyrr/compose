@@ -7,8 +7,8 @@ la liste des agents à invoquer pour ce tour. Répond en JSON pur.
 Agents disponibles :
   vision        — images, OCR, screenshots, analyse visuelle
   scholar       — articles scientifiques, recherche académique, littérature
-  coder         — code, scripts, artifacts interactifs (html/js/py), fichiers
-  tech          — docs de bibliothèques/frameworks, bash, questions techniques
+  dev           — code, artifacts interactifs (html/js), questions techniques,
+                  docs de bibliothèques/frameworks, bash, visualisation de données
   web           — navigation web, scraping, recherche d'actualités, URLs
   media         — vidéos YouTube, documents PDF/Word, transcription, conversion
   data          — calculs mathématiques, expressions numériques, SQL/DuckDB
@@ -35,7 +35,7 @@ _LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1")
 _LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
 
 _VALID_AGENTS = {
-    "vision", "scholar", "coder", "tech", "web",
+    "vision", "scholar", "dev", "web",
     "media", "data", "memory", "image_gen", "rag",
 }
 
@@ -47,8 +47,9 @@ of agent names to invoke. No explanation, no markdown — just the JSON array.
 Agent catalog:
   "vision"     → images present, or requests about image content/OCR
   "scholar"    → scientific papers, academic research, citations, studies
-  "coder"      → writing code, creating interactive artifacts (HTML/JS/Python), git operations
-  "tech"       → using a specific library/framework, technical docs, bash commands
+  "dev"        → writing code, creating interactive artifacts (HTML/JS/Python), technical
+                 questions about libraries/frameworks, bash commands, git operations,
+                 data formatting/display/visualization, ANY output that should be visual
   "web"        → browsing a URL, searching the web, news, current events
   "media"      → YouTube videos, transcripts, PDF/Word documents, format conversion
   "data"       → arithmetic, math calculations, statistics, SQL/DuckDB queries
@@ -61,28 +62,32 @@ Rules:
   - Return at most 3 agents per turn to avoid context bloat.
   - If images are attached, ALWAYS include "vision".
   - "memory" can be combined with any other agent when context recall seems useful.
-  - Prefer "coder" for generic code generation; prefer "tech" when a specific named library is the focus.
-  - Use ["coder", "tech"] when the request is to CREATE an artifact using a specific library (both needed).
-  - Never return "tech" alone for a code creation task — "coder" must be included.
+  - Use "dev" for ALL code generation, artifact creation, data formatting/display, and library questions.
+  - Use "data" ONLY for pure math/statistics/SQL with no display requirement.
+  - When data needs to be DISPLAYED or FORMATTED, use "dev" (not "data").
 
 Examples:
   "What studies exist on working memory?" → ["scholar"]
-  "Write a Python script to parse JSON" → ["coder"]
-  "Écris moi un script Python pour parser du JSON" → ["coder"]
-  "Create an interactive bubble chart" → ["coder"]
-  "Fais moi un graphique de données interactif" → ["coder"]
-  "Create a 3D spinning cube with Three.js" → ["coder", "tech"]
-  "Crée moi une visualisation 3D avec Three.js" → ["coder", "tech"]
-  "Build a dashboard with Chart.js" → ["coder", "tech"]
-  "Construis un dashboard avec Chart.js" → ["coder", "tech"]
-  "How do I use the Leaflet.js clustering plugin?" → ["tech"]
-  "How does React's useEffect hook work?" → ["tech"]
-  "Comment puis-je utiliser React Router?" → ["tech"]
-  "Debug this Python traceback: ..." → ["coder"]
+  "Write a Python script to parse JSON" → ["dev"]
+  "Écris moi un script Python pour parser du JSON" → ["dev"]
+  "Create an interactive bubble chart" → ["dev"]
+  "Fais moi un graphique de données interactif" → ["dev"]
+  "Mets ces données en forme" → ["dev"]
+  "Affiche ces résultats dans un tableau" → ["dev"]
+  "Présente ces statistiques visuellement" → ["dev"]
+  "Create a 3D spinning cube with Three.js" → ["dev"]
+  "Crée moi une visualisation 3D avec Three.js" → ["dev"]
+  "Build a dashboard with Chart.js" → ["dev"]
+  "Construis un dashboard avec Chart.js" → ["dev"]
+  "How do I use the Leaflet.js clustering plugin?" → ["dev"]
+  "How does React's useEffect hook work?" → ["dev"]
+  "Comment puis-je utiliser React Router?" → ["dev"]
+  "Debug this Python traceback: ..." → ["dev"]
   "Summarize this YouTube video: https://..." → ["media"]
   "Generate a misty forest image" → ["image_gen"]
   "[image attached] What's in this chart?" → ["vision"]
   "Calculate compound interest at 5% over 10 years" → ["data"]
+  "What is the result of (12 * 4) + 7?" → ["data"]
   "What do you remember about my research?" → ["memory"]
   "Search for recent news about LLMs" → ["web"]
   "What does my uploaded report say about Q3?" → ["rag"]
