@@ -1,7 +1,9 @@
-# title: Alyx
-# author: Homelab
-# version: 1.1.0
-# requirements: langgraph>=0.2, langchain-core>=0.3, langchain-openai>=0.2, langgraph-checkpoint-postgres, psycopg[binary,pool], httpx>=0.27, mcp
+"""
+title: Alyx
+author: adenyrr
+version: 1.2.0
+requirements: langgraph>=0.2, langchain-core>=0.3, langchain-openai>=0.2, langgraph-checkpoint-postgres, psycopg[binary,pool], httpx>=0.27, mcp, openai>=1.0
+"""
 
 """
 Alyx Pipeline — point d'entrée OpenWebUI Pipelines.
@@ -13,9 +15,8 @@ Les sous-agents travaillent en anglais et lui remontent leurs conclusions.
 Flux d'un message :
   1. Extraction des images base64 du body OpenWebUI
   2. Exécution du graphe LangGraph (supervisor → agents sélectionnés)
-  3. Émission de statuts intermédiaires via __event_emitter__ (streaming)
-  4. Synthèse finale par Alyx en français
-  5. Condensation mémoire en arrière-plan (fire-and-forget)
+  3. Synthèse finale streamée par Alyx en français
+  4. Condensation mémoire en arrière-plan (fire-and-forget)
 """
 
 from __future__ import annotations
@@ -23,19 +24,15 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+from typing import Generator
 
 # Garantit que graph/, agents/, tools/ sont importables depuis /app/pipelines/
 _PIPELINES_DIR = os.path.dirname(os.path.abspath(__file__))
 if _PIPELINES_DIR not in sys.path:
     sys.path.insert(0, _PIPELINES_DIR)
 
-from typing import AsyncGenerator
-
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from langchain_openai import ChatOpenAI
-
-# NB : graph/ et agents/ sont importés en lazy (dans _get_graph / pipe)
-# pour éviter qu'une erreur d'import profonde empêche la classe Pipeline de se charger.
+from openai import OpenAI
 
 _LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1")
 _LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
@@ -113,39 +110,36 @@ def _extract_images_b64(messages: list[dict]) -> list[str]:
 
 class Pipeline:
     class Valves:
-        pass  # Configuration via variables d'environnement
+        pass
 
     def __init__(self):
         self.name = "Alyx"
-        self.type = "pipe"
         self._graph = None
-        self._graph_lock = asyncio.Lock()
 
-    async def _get_graph(self):
-        """Initialise le graphe LangGraph une fois (lazy init thread-safe)."""
+    def _ensure_graph(self):
+        """Initialise le graphe LangGraph une fois (lazy)."""
         if self._graph is not None:
             return self._graph
-        async with self._graph_lock:
-            if self._graph is None:
-                from graph.builder import build_graph  # lazy — erreurs isolées du chargement
-                self._graph = await build_graph(_DB_URL)
+        from graph.builder import build_graph
+        loop = asyncio.new_event_loop()
+        try:
+            self._graph = loop.run_until_complete(build_graph(_DB_URL))
+        finally:
+            loop.close()
         return self._graph
 
-    async def pipe(
+    def pipe(
         self,
         user_message: str,
         model_id: str,
         messages: list[dict],
         body: dict,
-        __event_emitter__=None,
-    ) -> AsyncGenerator[str, None]:
-
-        async def emit_status(text: str, done: bool = False) -> None:
-            if __event_emitter__:
-                await __event_emitter__({
-                    "type": "status",
-                    "data": {"description": text, "done": done},
-                })
+    ) -> Generator[str, None, None]:
+        """
+        Point d'entrée synchrone (Generator) exigé par le framework Pipelines.
+        Le graphe LangGraph (async) est exécuté dans un event loop éphémère,
+        puis la synthèse est streamée via le client OpenAI sync.
+        """
 
         # 1. Préparer l'état initial
         lc_messages = _convert_messages(messages)
@@ -162,77 +156,87 @@ class Pipeline:
             "artifacts": [],
         }
 
+        # 2. Exécuter le graphe (supervisor + agents) — async dans un loop dédié
         try:
-            graph = await self._get_graph()
+            graph = self._ensure_graph()
         except Exception as exc:
             yield f"[Erreur d'initialisation du graphe : {exc}]"
             return
 
-        # 2. Exécuter le graphe (supervisor + agents)
         agent_outputs: dict[str, str] = {}
         artifacts: list[dict] = []
 
+        loop = asyncio.new_event_loop()
         try:
-            async for event in graph.astream(initial_state, config=config, stream_mode="updates"):
-                for node_name, node_output in event.items():
-                    if node_name == "supervisor":
-                        routing = node_output.get("routing", [])
-                        if routing:
-                            icons = ", ".join(_AGENT_ICONS.get(a, a) for a in routing)
-                            await emit_status(f"{icons}…")
-                    else:
-                        # Nœud agent
-                        outputs = node_output.get("agent_outputs", {})
-                        agent_outputs.update(outputs)
-                        new_artifacts = node_output.get("artifacts", [])
-                        artifacts.extend(new_artifacts)
-                        if node_name in _AGENT_ICONS:
-                            await emit_status(_AGENT_ICONS[node_name] + " ✓", done=False)
+            agent_outputs, artifacts = loop.run_until_complete(
+                self._run_graph(graph, initial_state, config)
+            )
         except Exception as exc:
-            await emit_status(f"Erreur : {exc}", done=True)
             yield f"[Erreur lors de l'exécution : {exc}]"
             return
+        finally:
+            loop.close()
 
-        await emit_status("Alyx rédige…", done=False)
-
-        # 3. Synthèse finale par Alyx
+        # 3. Synthèse finale streamée par Alyx (client sync OpenAI)
         synthesis_context = _build_synthesis_context(agent_outputs, artifacts)
 
-        llm = ChatOpenAI(
-            model=_ALYX_MODEL,
-            base_url=_LITELLM_URL,
-            api_key=_LITELLM_API_KEY,
-            temperature=0.7,
-            streaming=True,
-        )
+        synth_messages = [{"role": "system", "content": _ALYX_SYSTEM}]
+        # Historique récent (max 6 échanges)
+        for m in messages[-12:]:
+            synth_messages.append({"role": m.get("role", "user"), "content": m.get("content", "")})
 
-        synthesis_messages = [SystemMessage(content=_ALYX_SYSTEM)]
-        # Historique récent (max 6 messages)
-        synthesis_messages.extend(lc_messages[-6:])
         if synthesis_context:
-            synthesis_messages.append(HumanMessage(
-                content=f"[Résultats des agents spécialisés]\n{synthesis_context}\n\n[Message original de l'utilisateur]\n{user_message}"
-            ))
+            synth_messages.append({
+                "role": "user",
+                "content": f"[Résultats des agents spécialisés]\n{synthesis_context}\n\n[Message original de l'utilisateur]\n{user_message}",
+            })
         else:
-            synthesis_messages.append(HumanMessage(content=user_message))
+            synth_messages.append({"role": "user", "content": user_message})
 
-        await emit_status("", done=True)
-
-        # Stream la réponse finale token par token
-        async for chunk in llm.astream(synthesis_messages):
-            if chunk.content:
-                yield chunk.content
+        client = OpenAI(base_url=_LITELLM_URL, api_key=_LITELLM_API_KEY)
+        stream = client.chat.completions.create(
+            model=_ALYX_MODEL,
+            messages=synth_messages,
+            temperature=0.7,
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta
+            if delta.content:
+                yield delta.content
 
         # 4. Condensation mémoire en arrière-plan (fire-and-forget)
-        final_state = {
-            "messages": lc_messages + [HumanMessage(content=user_message)],
-            "images_b64": images_b64,
-            "routing": [],
-            "agent_outputs": agent_outputs,
-            "artifacts": artifacts,
-        }
-        import agents.memory_agent as memory_mod  # lazy
-        asyncio.create_task(memory_mod.run_bg(final_state))
+        try:
+            bg_loop = asyncio.new_event_loop()
+            final_state = {
+                "messages": lc_messages + [HumanMessage(content=user_message)],
+                "images_b64": images_b64,
+                "routing": [],
+                "agent_outputs": agent_outputs,
+                "artifacts": artifacts,
+            }
+            import agents.memory_agent as memory_mod
+            bg_loop.run_until_complete(memory_mod.run_bg(final_state))
+            bg_loop.close()
+        except Exception:
+            pass  # ne jamais bloquer la réponse pour la mémoire
+
+    @staticmethod
+    async def _run_graph(graph, initial_state: dict, config: dict):
+        """Exécute le graphe LangGraph et collecte les sorties agents."""
+        agent_outputs: dict[str, str] = {}
+        artifacts: list[dict] = []
+
+        async for event in graph.astream(initial_state, config=config, stream_mode="updates"):
+            for node_name, node_output in event.items():
+                if node_name == "supervisor":
+                    continue
+                outputs = node_output.get("agent_outputs", {})
+                agent_outputs.update(outputs)
+                new_artifacts = node_output.get("artifacts", [])
+                artifacts.extend(new_artifacts)
+
+        return agent_outputs, artifacts
 
 
 def _build_synthesis_context(agent_outputs: dict[str, str], artifacts: list[dict]) -> str:
