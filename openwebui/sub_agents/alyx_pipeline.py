@@ -129,6 +129,7 @@ class Pipeline:
         stream_agent_status: bool = Field(default=True, description="Streamer une ligne de statut avant la réponse (agents invoqués)")
         show_model_footer: bool = Field(default=True, description="Afficher un pied de page après la réponse (modèle + agents)")
         show_reasoning: bool = Field(default=False, description="Afficher le raisonnement interne du modèle (balises <think> ou champ reasoning_content)")
+        realtime_status: bool = Field(default=True, description="Émettre des statuts OpenWebUI en temps réel (quel agent travaille)")
         enable_memory_bg: bool = Field(default=True, description="Activer la condensation mémoire en arrière-plan")
         # --- Superviseur ---
         supervisor_model: str = Field(default="openrouter/gpt-oss", description="Modèle du superviseur (routage)")
@@ -209,12 +210,21 @@ class Pipeline:
         model_id: str,
         messages: list[dict],
         body: dict,
+        __event_emitter__=None,
     ) -> Generator[str, None, None]:
         """
         Point d'entrée synchrone (Generator) exigé par le framework Pipelines.
         Toutes les opérations async s'exécutent dans le loop persistant de l'instance
         via run_coroutine_threadsafe, garantissant que les connexions psycopg restent valides.
         """
+        # Helper : émet un statut OpenWebUI natif depuis le contexte synchrone.
+        # done=True efface le spinner ; done=False affiche le spinner.
+        def _emit(description: str, done: bool = False) -> None:
+            if __event_emitter__ and self.valves.realtime_status:
+                asyncio.run_coroutine_threadsafe(
+                    __event_emitter__({"type": "status", "data": {"description": description, "done": done}}),
+                    self._loop,
+                )
 
         # 1. Préparer l'état initial
         from langchain_core.messages import HumanMessage  # lazy
@@ -234,9 +244,11 @@ class Pipeline:
         }
 
         # 2. Exécuter le graphe (supervisor + agents) dans le loop persistant
+        _emit("🔍 Analyse du message…")
         try:
             graph = self._ensure_graph()
         except Exception as exc:
+            _emit("Erreur d'initialisation", done=True)
             yield f"[Erreur d'initialisation du graphe : {exc}]"
             return
 
@@ -244,14 +256,17 @@ class Pipeline:
         artifacts: list[dict] = []
 
         try:
+            emitter = __event_emitter__ if self.valves.realtime_status else None
             agent_outputs, artifacts = self._run_sync(
-                self._run_graph(graph, initial_state, config)
+                self._run_graph(graph, initial_state, config, emitter)
             )
         except Exception as exc:
+            _emit("Erreur lors de l'exécution", done=True)
             yield f"[Erreur lors de l'exécution : {exc}]"
             return
 
         # 3. Synthèse finale streamée par Alyx (client sync OpenAI)
+        _emit("✍️ Rédaction de la réponse…")
         synthesis_context = _build_synthesis_context(agent_outputs, artifacts)
 
         # Ligne de statut agents (optionnelle)
@@ -285,6 +300,7 @@ class Pipeline:
             stream=True,
         )
         yield from self._stream_response(stream, self.valves.show_reasoning)
+        _emit("", done=True)
 
         # 4. Pied de page modèle + agents (optionnel)
         if self.valves.show_model_footer:
@@ -394,15 +410,40 @@ class Pipeline:
                 yield flushed
 
     @staticmethod
-    async def _run_graph(graph, initial_state: dict, config: dict):
-        """Exécute le graphe LangGraph et collecte les sorties agents."""
+    async def _run_graph(graph, initial_state: dict, config: dict, event_emitter=None):
+        """Exécute le graphe LangGraph et collecte les sorties agents.
+
+        event_emitter optionnel : coroutine appelable OpenWebUI pour les statuts en temps réel.
+        """
         agent_outputs: dict[str, str] = {}
         artifacts: list[dict] = []
+        pending: set[str] = set()
+
+        async def _emit(description: str, done: bool = False) -> None:
+            if event_emitter:
+                try:
+                    await event_emitter({"type": "status", "data": {"description": description, "done": done}})
+                except Exception:
+                    pass
 
         async for event in graph.astream(initial_state, config=config, stream_mode="updates"):
             for node_name, node_output in event.items():
                 if node_name == "supervisor":
+                    routing = node_output.get("routing", [])
+                    if routing:
+                        pending = set(routing)
+                        labels = "  ·  ".join(_AGENT_ICONS.get(a, a) for a in routing)
+                        await _emit(f"Agents : {labels}")
                     continue
+
+                icon = _AGENT_ICONS.get(node_name, node_name)
+                pending.discard(node_name)
+                if pending:
+                    remaining = "  ·  ".join(_AGENT_ICONS.get(a, a) for a in pending)
+                    await _emit(f"✅ {icon} · en cours : {remaining}")
+                else:
+                    await _emit(f"✅ {icon}")
+
                 outputs = node_output.get("agent_outputs", {})
                 agent_outputs.update(outputs)
                 new_artifacts = node_output.get("artifacts", [])
