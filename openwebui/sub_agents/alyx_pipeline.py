@@ -66,6 +66,16 @@ Tu orchestres des agents spécialisés qui travaillent en arrière-plan pour toi
 Quand leurs résultats te sont fournis, intègre-les naturellement dans ta réponse sans mentionner
 les détails techniques du pipeline (noms d'agents, processus interne, etc.).
 
+RÈGLE ABSOLUE — Réponses directes et complètes :
+  - INTERDIT : "Je vais chercher", "Je sollicite un agent", "Je reviens dès que", "en cours de
+    récupération", "une fois les données obtenues", "je lance une recherche", ou tout texte
+    indiquant que tu attends, délègues, ou vas revenir avec un résultat ultérieur.
+  - Les agents ont DÉJÀ terminé. Leurs résultats sont intégralement dans ce prompt.
+  - Si des résultats agents sont fournis → synthétise-les IMMÉDIATEMENT, sans préambule.
+  - Si les résultats sont vides ou insuffisants → réponds directement sur tes connaissances
+    en précisant que les données fraîches peuvent nécessiter une vérification en ligne.
+  - Ne génère JAMAIS de réponse en deux étapes ni de promesses de résultat futur.
+
 Directives de contenu :
   - Réponds toujours en français, de façon fluide et naturelle
   - Sois concise pour les réponses simples, détaillée pour les sujets complexes
@@ -159,6 +169,7 @@ class Pipeline:
         self.valves = self.Valves()
         self._graph = None
         self._pool = None
+        self._models: dict = {}
         # Loop persistant dans un thread dédié — toutes les ops async partagent le même loop
         # pour que les connexions psycopg (liées à leur loop) restent valides.
         self._loop = asyncio.new_event_loop()
@@ -173,6 +184,7 @@ class Pipeline:
         old_pool = self._pool
         self._graph = None
         self._pool = None
+        self._models = {}
         if old_pool is not None:
             asyncio.run_coroutine_threadsafe(old_pool.close(), self._loop)
 
@@ -210,6 +222,7 @@ class Pipeline:
             "rag":        self.valves.model_rag,
         }
         self._graph, self._pool = self._run_sync(build_graph(self.valves.db_url, models))
+        self._models = models
         return self._graph
 
     def pipe(
@@ -269,7 +282,7 @@ class Pipeline:
         try:
             emitter = __event_emitter__ if self.valves.realtime_status else None
             agent_outputs, artifacts = self._run_sync(
-                self._run_graph(graph, initial_state, config, emitter)
+                self._run_graph(graph, initial_state, config, emitter, models=self._models)
             )
         except Exception as exc:
             _emit("Erreur lors de l'exécution", done=True)
@@ -434,10 +447,11 @@ class Pipeline:
                 yield flushed
 
     @staticmethod
-    async def _run_graph(graph, initial_state: dict, config: dict, event_emitter=None):
+    async def _run_graph(graph, initial_state: dict, config: dict, event_emitter=None, models: dict | None = None):
         """Exécute le graphe LangGraph et collecte les sorties agents.
 
         event_emitter optionnel : coroutine appelable OpenWebUI pour les statuts en temps réel.
+        models optionnel : dict agent_name → model_id pour les statuts dynamiques.
         """
         agent_outputs: dict[str, str] = {}
         artifacts: list[dict] = []
@@ -456,17 +470,24 @@ class Pipeline:
                     routing = node_output.get("routing", [])
                     if routing:
                         pending = set(routing)
-                        labels = "  ·  ".join(_AGENT_ICONS.get(a, a) for a in routing)
+                        labels = "  ·  ".join(
+                            f"{_AGENT_ICONS.get(a, a)} ({(models or {}).get(a, '?')})"
+                            for a in routing
+                        )
                         await _emit(f"Agents : {labels}")
                     continue
 
                 icon = _AGENT_ICONS.get(node_name, node_name)
+                model_name = (models or {}).get(node_name, "?")
                 pending.discard(node_name)
                 if pending:
-                    remaining = "  ·  ".join(_AGENT_ICONS.get(a, a) for a in pending)
-                    await _emit(f"✅ {icon} · en cours : {remaining}")
+                    remaining = "  ·  ".join(
+                        f"{_AGENT_ICONS.get(a, a)} ({(models or {}).get(a, '?')})"
+                        for a in pending
+                    )
+                    await _emit(f"✅ {icon} ({model_name}) · en cours : {remaining}")
                 else:
-                    await _emit(f"✅ {icon}")
+                    await _emit(f"✅ {icon} ({model_name})")
 
                 outputs = node_output.get("agent_outputs", {})
                 agent_outputs.update(outputs)

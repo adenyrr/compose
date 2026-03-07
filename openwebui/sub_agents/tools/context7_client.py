@@ -16,7 +16,17 @@ import httpx
 
 _CONTEXT7_URL = "https://mcp.context7.com/mcp"
 _CONTEXT7_API_KEY = os.environ.get("CONTEXT7_API_KEY", "")
-_TIMEOUT = 30.0
+_TIMEOUT = 8.0  # échoue vite si le service cloud est lent ou indisponible
+
+# Client persistent — évite la négociation TLS à chaque appel
+_client: httpx.AsyncClient | None = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=_TIMEOUT)
+    return _client
 
 
 def _headers() -> dict[str, str]:
@@ -34,17 +44,17 @@ async def _mcp_call(method: str, params: dict[str, Any]) -> Any:
         "method": "tools/call",
         "params": {"name": method, "arguments": params},
     }
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        resp = await client.post(_CONTEXT7_URL, headers=_headers(), json=payload)
-        resp.raise_for_status()
-        data = resp.json()
-        if "error" in data:
-            raise RuntimeError(f"Context7 error: {data['error']}")
-        # Le contenu est dans result.content[0].text
-        content = data.get("result", {}).get("content", [])
-        if content and isinstance(content, list):
-            return content[0].get("text", "")
-        return str(data.get("result", ""))
+    client = _get_client()
+    resp = await client.post(_CONTEXT7_URL, headers=_headers(), json=payload)
+    resp.raise_for_status()
+    data = resp.json()
+    if "error" in data:
+        raise RuntimeError(f"Context7 error: {data['error']}")
+    # Le contenu est dans result.content[0].text
+    content = data.get("result", {}).get("content", [])
+    if content and isinstance(content, list):
+        return content[0].get("text", "")
+    return str(data.get("result", ""))
 
 
 async def resolve_library_id(library_name: str) -> str:

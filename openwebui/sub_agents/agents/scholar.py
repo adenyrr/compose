@@ -6,6 +6,7 @@ Modèle : GPT-OSS 120B.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from typing import TYPE_CHECKING
@@ -44,29 +45,27 @@ async def run(state: "AlyxState", model: str | None = None) -> dict:
     # Extraire 3-5 mots-clés anglophones pour les recherches MCPO
     keywords = await _extract_keywords(user_text, llm)
 
-    # 1. Recherche académique (mots-clés anglais uniquement)
-    paper_results = ""
-    wiki_results = ""
-    reasoning = ""
+    # 1. Recherche académique — 3 outils en parallèle
+    async def _safe(server: str, tool: str, params: dict):
+        try:
+            return await call_tool(server, tool, params)
+        except Exception as exc:
+            return {"error": str(exc)}
 
-    try:
-        papers = await call_tool("paper-search", "search_papers", {"query": keywords, "limit": 5})
-        paper_results = json.dumps(papers, ensure_ascii=False, indent=2)
-    except Exception as exc:
-        paper_results = f"paper-search unavailable: {exc}"
+    papers_raw, wiki_raw, seq_raw = await asyncio.gather(
+        _safe("paper-search", "search_papers", {"query": keywords, "limit": 5}),
+        _safe("wikipedia", "search", {"query": keywords, "limit": 3}),
+        _safe("sequential-thinking", "sequentialthinking", {"thought": keywords}),
+    )
 
-    try:
-        wiki = await call_tool("wikipedia", "search", {"query": keywords, "limit": 3})
-        wiki_results = json.dumps(wiki, ensure_ascii=False, indent=2)
-    except Exception as exc:
-        wiki_results = f"wikipedia unavailable: {exc}"
+    def _to_str(v) -> str:
+        if isinstance(v, (dict, list)):
+            return json.dumps(v, ensure_ascii=False, indent=2)
+        return str(v)
 
-    try:
-        # Outil officiel : "sequentialthinking" (pas "think")
-        seq = await call_tool("sequential-thinking", "sequentialthinking", {"thought": keywords})
-        reasoning = json.dumps(seq, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
+    paper_results = _to_str(papers_raw)
+    wiki_results  = _to_str(wiki_raw)
+    reasoning     = _to_str(seq_raw) if not isinstance(seq_raw, dict) or "error" not in seq_raw else ""
 
     # 2. Synthèse LLM
     context = (
@@ -85,13 +84,16 @@ async def run(state: "AlyxState", model: str | None = None) -> dict:
 
 async def _extract_keywords(user_text: str, llm: ChatOpenAI) -> str:
     """Extrait 3-5 mots-clés anglophones pour les recherches MCPO."""
-    resp = await llm.ainvoke([
-        SystemMessage(content=(
-            "Extract 3-5 concise English search keywords from the user's message. "
-            "Output ONLY the keywords, space-separated, lowercase, no punctuation, no explanation."
-        )),
-        HumanMessage(content=user_text),
-    ])
+    resp = await llm.ainvoke(
+        [
+            SystemMessage(content=(
+                "Extract 3-5 concise English search keywords from the user's message. "
+                "Output ONLY the keywords, space-separated, lowercase, no punctuation, no explanation."
+            )),
+            HumanMessage(content=user_text),
+        ],
+        config={"max_tokens": 20},
+    )
     return resp.content.strip().replace("\n", " ")
 
 

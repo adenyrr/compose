@@ -10,9 +10,10 @@ Le thread_id correspond au chat_id OpenWebUI pour l'historique multi-tours.
 
 from __future__ import annotations
 
-from functools import partial
+import inspect
 from typing import Callable
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.checkpoint.memory import MemorySaver
@@ -41,6 +42,25 @@ _AGENT_MAP: dict[str, Callable] = {
     "image_gen": image_gen_agent.run,
     "rag":       rag_agent.run,
 }
+
+
+def _make_node(fn: Callable, model: str | None) -> Callable:
+    """Crée un nœud LangGraph avec annotation RunnableConfig explicite.
+
+    `functools.partial` perd les annotations de type, ce qui empêche LangGraph
+    de détecter automatiquement le paramètre `config: RunnableConfig`. Ce wrapper
+    corrige cela en déclarant explicitement la signature attendue par LangGraph.
+    Le paramètre `config` n'est transmis à la fonction sous-jacente que si elle
+    le déclare dans sa propre signature.
+    """
+    _pass_config = "config" in inspect.signature(fn).parameters
+
+    async def _node(state: AlyxState, config: RunnableConfig | None = None) -> dict:
+        if _pass_config:
+            return await fn(state, config=config, model=model)
+        return await fn(state, model=model)
+
+    return _node
 
 
 def _routing_condition(state: AlyxState) -> list[str]:
@@ -75,12 +95,12 @@ async def build_graph(db_url: str, models: dict | None = None):
     builder = StateGraph(AlyxState)
 
     # Nœud superviseur
-    builder.add_node("supervisor", partial(route, model=_models.get("supervisor")))
+    builder.add_node("supervisor", _make_node(route, _models.get("supervisor")))
     builder.set_entry_point("supervisor")
 
     # Nœuds agents
     for name, fn in _AGENT_MAP.items():
-        builder.add_node(name, partial(fn, model=_models.get(name)))
+        builder.add_node(name, _make_node(fn, _models.get(name)))
 
     # Edge conditionnel depuis le superviseur → agents ou END
     builder.add_conditional_edges(

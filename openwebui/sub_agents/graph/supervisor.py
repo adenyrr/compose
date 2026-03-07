@@ -65,6 +65,14 @@ Rules:
   - Use "dev" for ALL code generation, artifact creation, data formatting/display, and library questions.
   - Use "data" ONLY for pure math/statistics/SQL with no display requirement.
   - When data needs to be DISPLAYED or FORMATTED, use "dev" (not "data").
+  - CRITICAL — web + dev parallelism: agents run IN PARALLEL and cannot share data within the same
+    turn. NEVER combine ["web", "dev"] when the user wants to fetch data AND then visualize it —
+    dev would run without web's results. Instead:
+    • If the user wants data fetched + visualized: route to ["web"] ONLY.
+      Alyx will present the data as text; the user can ask for visualization on the next turn.
+    • ["dev"] alone is correct when the user already has the data in the conversation or provides it.
+    • ["web", "dev"] is only valid when dev's task is INDEPENDENT of what web fetches
+      (e.g., "search for the latest news AND write a Python hello world").
 
 Examples:
   "What studies exist on working memory?" → ["scholar"]
@@ -90,6 +98,10 @@ Examples:
   "What is the result of (12 * 4) + 7?" → ["data"]
   "What do you remember about my research?" → ["memory"]
   "Search for recent news about LLMs" → ["web"]
+  "Cherche les coordonnées de chute des missiles nord-coréens" → ["web"]
+  "Récupère les données sur les tremblements de terre et fais une carte" → ["web"]
+  "Cherche des données sur X et crée un graphique" → ["web"]
+  "Search for X data and plot it" → ["web"]
   "What does my uploaded report say about Q3?" → ["rag"]
   "Hello, how are you?" → []
   "Bonjour, comment vas-tu ?" → []

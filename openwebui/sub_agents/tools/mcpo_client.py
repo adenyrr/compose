@@ -13,6 +13,16 @@ import httpx
 _MCPO_URL = os.environ.get("MCPO_URL", "http://mcpo:8000")
 _TIMEOUT = 60.0
 
+# Client persistent — pool de connexions réutilisées vers mcpo (même réseau Docker)
+_client: httpx.AsyncClient | None = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=_TIMEOUT)
+    return _client
+
 
 async def call_tool(server: str, tool: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
     """
@@ -28,7 +38,7 @@ async def call_tool(server: str, tool: str, payload: dict[str, Any] | None = Non
         Réponse JSON de l'outil sous forme de dict.
     """
     url = f"{_MCPO_URL}/{server}/{tool}"
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        resp = await client.post(url, json=payload or {})
-        resp.raise_for_status()
-        return resp.json()
+    client = _get_client()
+    resp = await client.post(url, json=payload or {})
+    resp.raise_for_status()
+    return resp.json()
