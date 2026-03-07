@@ -75,10 +75,10 @@ async def run(state: "AlyxState", model: str | None = None) -> dict:
     return {"agent_outputs": {"memory": response.content}}
 
 
-async def run_bg(state: "AlyxState") -> None:
+async def run_bg(state: "AlyxState", model: str | None = None) -> None:
     """
     Condense la conversation courante en faits et les stocke dans le knowledge graph.
-    Conçu pour être exécuté en fire-and-forget via asyncio.create_task().
+    Conçu pour être exécuté en fire-and-forget via asyncio.run_coroutine_threadsafe().
     """
     messages = state.get("messages", [])
     if len(messages) < 2:
@@ -92,7 +92,7 @@ async def run_bg(state: "AlyxState") -> None:
     )
 
     llm = ChatOpenAI(
-        model=_MODEL,
+        model=model or _MODEL,
         base_url=_LITELLM_URL,
         api_key=_LITELLM_API_KEY,
         temperature=0.1,

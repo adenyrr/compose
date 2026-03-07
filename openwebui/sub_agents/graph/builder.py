@@ -95,8 +95,13 @@ async def build_graph(db_url: str, models: dict | None = None):
         builder.add_edge(name, END)
 
     # Checkpointer PostgreSQL via pool de connexions persistant
-    pool = AsyncConnectionPool(conninfo=db_url, max_size=20, open=False)
-    await pool.open()
+    pool = AsyncConnectionPool(
+        conninfo=db_url,
+        min_size=2,
+        max_size=20,
+        open=False,
+    )
+    await pool.open(wait=True)
     checkpointer = AsyncPostgresSaver(pool)
     await checkpointer.setup()
 

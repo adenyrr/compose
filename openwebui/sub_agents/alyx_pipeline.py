@@ -1,8 +1,8 @@
 """
 title: Alyx
 author: adenyrr
-version: 1.3.0
-requirements: langgraph>=0.2, langchain-core>=0.3, langchain-openai>=0.2, langgraph-checkpoint-postgres, psycopg, psycopg-pool, httpx>=0.27, mcp, openai>=1.0, pydantic>=2.0
+version: 0.3.0
+requirements: langgraph>=0.2, langchain-core>=0.3, langchain-openai>=0.2, langgraph-checkpoint-postgres, psycopg[pool], httpx>=0.27, mcp, openai>=1.0, pydantic>=2.0
 """
 
 """
@@ -286,7 +286,10 @@ class Pipeline:
                     "agent_outputs": agent_outputs,
                     "artifacts": artifacts,
                 }
-                asyncio.run_coroutine_threadsafe(memory_mod.run_bg(final_state), self._loop)
+                asyncio.run_coroutine_threadsafe(
+                    memory_mod.run_bg(final_state, model=self.valves.model_memory),
+                    self._loop,
+                )
             except Exception:
                 pass  # ne jamais bloquer la réponse pour la mémoire
 
