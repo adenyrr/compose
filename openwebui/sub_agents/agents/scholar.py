@@ -33,25 +33,37 @@ async def run(state: "AlyxState", model: str | None = None) -> dict:
     messages = state.get("messages", [])
     user_text = _last_user_message(messages)
 
-    # 1. Recherche académique
+    # LLM créé en premier — utilisé pour l'extraction de mots-clés ET la synthèse
+    llm = ChatOpenAI(
+        model=model or _MODEL,
+        base_url=_LITELLM_URL,
+        api_key=_LITELLM_API_KEY,
+        temperature=0.2,
+    )
+
+    # Extraire 3-5 mots-clés anglophones pour les recherches MCPO
+    keywords = await _extract_keywords(user_text, llm)
+
+    # 1. Recherche académique (mots-clés anglais uniquement)
     paper_results = ""
     wiki_results = ""
     reasoning = ""
 
     try:
-        papers = await call_tool("paper-search", "search_papers", {"query": user_text, "limit": 5})
+        papers = await call_tool("paper-search", "search_papers", {"query": keywords, "limit": 5})
         paper_results = json.dumps(papers, ensure_ascii=False, indent=2)
     except Exception as exc:
         paper_results = f"paper-search unavailable: {exc}"
 
     try:
-        wiki = await call_tool("wikipedia", "search", {"query": user_text, "limit": 3})
+        wiki = await call_tool("wikipedia", "search", {"query": keywords, "limit": 3})
         wiki_results = json.dumps(wiki, ensure_ascii=False, indent=2)
     except Exception as exc:
         wiki_results = f"wikipedia unavailable: {exc}"
 
     try:
-        seq = await call_tool("sequential-thinking", "think", {"thought": user_text})
+        # Outil officiel : "sequentialthinking" (pas "think")
+        seq = await call_tool("sequential-thinking", "sequentialthinking", {"thought": keywords})
         reasoning = json.dumps(seq, ensure_ascii=False, indent=2)
     except Exception:
         pass
@@ -63,19 +75,24 @@ async def run(state: "AlyxState", model: str | None = None) -> dict:
         f"## Sequential reasoning\n{reasoning}".strip()
     )
 
-    llm = ChatOpenAI(
-        model=model or _MODEL,
-        base_url=_LITELLM_URL,
-        api_key=_LITELLM_API_KEY,
-        temperature=0.2,
-    )
-
     response = await llm.ainvoke([
         SystemMessage(content=_SYSTEM),
         HumanMessage(content=f"{context}\n\nUser question: {user_text}"),
     ])
 
     return {"agent_outputs": {"scholar": response.content}}
+
+
+async def _extract_keywords(user_text: str, llm: ChatOpenAI) -> str:
+    """Extrait 3-5 mots-clés anglophones pour les recherches MCPO."""
+    resp = await llm.ainvoke([
+        SystemMessage(content=(
+            "Extract 3-5 concise English search keywords from the user's message. "
+            "Output ONLY the keywords, space-separated, lowercase, no punctuation, no explanation."
+        )),
+        HumanMessage(content=user_text),
+    ])
+    return resp.content.strip().replace("\n", " ")
 
 
 def _last_user_message(messages: list) -> str:

@@ -13,6 +13,8 @@ Les fichiers téléchargeables sont inclus dans le bloc markdown.
 from __future__ import annotations
 
 import os
+import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from langchain_openai import ChatOpenAI
@@ -26,6 +28,62 @@ if TYPE_CHECKING:
 _MODEL = "openrouter/kimi-k2.5"
 _LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1")
 _LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
+
+# ------- Skills (même système que tech.py) -------
+_skills_cache: dict[str, str] = {}
+_skills_meta: dict[str, str] = {}
+_SKILLS_DIR = Path("/app/pipelines/skills")
+
+_STOPWORDS = {
+    "a", "an", "the", "is", "in", "to", "how", "do", "can", "me", "i", "for", "of",
+    "with", "this", "my", "any", "and", "or", "it", "that", "on", "what", "use",
+    "get", "have", "be", "are", "was", "will", "by", "at", "as", "from", "make",
+    "build", "show", "give", "let", "want", "need", "please", "help", "write", "create",
+    "de", "du", "le", "la", "les", "un", "une", "des", "je", "tu", "il", "nous",
+    "vous", "ils", "mon", "ma", "mes", "ton", "ta", "tes", "son", "sa", "ses",
+    "que", "qui", "quoi", "quel", "quelle", "faire", "fait", "fais", "avec",
+    "sans", "mais", "ou", "et", "si", "car", "est", "sur", "par", "pour", "dans",
+    "ce", "cet", "ces", "moi", "toi", "lui", "suis", "veux", "peux", "dois",
+    "crée", "crée-moi", "génère", "fais-moi", "affiche",
+}
+
+
+def _load_skills() -> None:
+    if _skills_cache or not _SKILLS_DIR.exists():
+        return
+    for skill_file in _SKILLS_DIR.glob("*.md"):
+        try:
+            content = skill_file.read_text(encoding="utf-8")
+            name_match = re.search(r"^name:\s*(.+)$", content, re.MULTILINE)
+            key = name_match.group(1).strip() if name_match else skill_file.stem
+            desc_match = re.search(r"^description:\s*(.+)$", content, re.MULTILINE)
+            _skills_cache[key] = content
+            _skills_meta[key] = desc_match.group(1).strip() if desc_match else ""
+        except Exception:
+            pass
+
+
+def _find_relevant_skills(query: str) -> str:
+    _load_skills()
+    query_lower = query.lower()
+    query_words = {w for w in re.split(r"\W+", query_lower) if len(w) > 3 and w not in _STOPWORDS}
+    scored: list[tuple[int, str, str]] = []
+    for name, content in _skills_cache.items():
+        score = 0
+        name_lower = name.lower()
+        if name_lower in query_lower:
+            score += 10
+        else:
+            for part in re.split(r"[-_.]", name_lower):
+                if len(part) > 3 and part in query_lower:
+                    score += 5
+        desc = _skills_meta.get(name, "").lower()
+        if desc and query_words:
+            score += min(sum(1 for w in query_words if w in desc), 5)
+        if score > 0:
+            scored.append((score, name, content))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return "\n\n".join(f"### Skill: {n}\n{c[:2000]}" for _, n, c in scored[:2])
 
 _SYSTEM = """\
 You are an expert software engineer and creative front-end developer.
@@ -50,15 +108,22 @@ Always reply in English.
 
 
 async def run(state: "AlyxState", model: str | None = None) -> dict:
+    _load_skills()
     messages = state.get("messages", [])
     user_text = _last_user_message(messages)
 
-    # Tente d'obtenir le contexte git si pertinent
-    git_context = ""
+    context_parts: list[str] = []
+
+    # 1. Skills pertinents
+    skill_context = _find_relevant_skills(user_text)
+    if skill_context:
+        context_parts.append(f"## Relevant skills\n{skill_context}")
+
+    # 2. Contexte git si pertinent
     if any(kw in user_text.lower() for kw in ["git", "commit", "diff", "branch", "repo"]):
         try:
             git_info = await call_tool("git", "git_status", {})
-            git_context = f"\n## Git status\n{git_info}\n"
+            context_parts.append(f"## Git status\n{git_info}")
         except Exception:
             pass
 
@@ -69,9 +134,8 @@ async def run(state: "AlyxState", model: str | None = None) -> dict:
         temperature=0.15,
     )
 
-    prompt = user_text
-    if git_context:
-        prompt = f"{git_context}\n{user_text}"
+    context = "\n\n".join(context_parts)
+    prompt = f"{context}\n\nUser request: {user_text}" if context else user_text
 
     response = await llm.ainvoke([
         SystemMessage(content=_SYSTEM),

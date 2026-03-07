@@ -304,15 +304,29 @@ class Pipeline:
 
         # 4. Pied de page modèle + agents (optionnel)
         if self.valves.show_model_footer:
-            footer_labels = " · ".join(
-                _AGENT_ICONS.get(name, name)
+            # Table de correspondance agent → modèle configuré via les valves
+            _agent_models = {
+                "vision":    self.valves.model_vision,
+                "scholar":   self.valves.model_scholar,
+                "coder":     self.valves.model_coder,
+                "tech":      self.valves.model_tech,
+                "web":       self.valves.model_web,
+                "media":     self.valves.model_media,
+                "data":      self.valves.model_data,
+                "memory":    self.valves.model_memory,
+                "image_gen": self.valves.model_image_gen,
+                "rag":       self.valves.model_rag,
+            }
+            agent_parts = [
+                f"{_AGENT_ICONS.get(name, name)} `{_agent_models.get(name, '?')}`"
                 for name in agent_outputs
                 if agent_outputs[name] and agent_outputs[name].strip()
-            )
-            footer = f"\n\n---\n*🤖 `{self.valves.alyx_model}`"
-            if footer_labels:
-                footer += f" — {footer_labels}"
-            footer += "*"
+            ]
+            synth_part = f"✍️ `{self.valves.alyx_model}`"
+            if agent_parts:
+                footer = "\n\n---\n*" + "  ·  ".join(agent_parts) + "  ·  " + synth_part + "*"
+            else:
+                footer = f"\n\n---\n*{synth_part}*"
             yield footer
 
         # 5. Condensation mémoire en arrière-plan (true fire-and-forget)

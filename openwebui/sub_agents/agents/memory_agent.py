@@ -111,7 +111,7 @@ async def run_bg(state: "AlyxState", model: str | None = None) -> None:
         facts = [f.strip("• ").strip() for f in facts_text.split("\n") if f.strip()]
         for fact in facts:
             if fact:
-                await call_tool("memory", "add_observation", {
+                await call_tool("memory", "add_observations", {
                     "observations": [{"entityName": "Alyx-Context", "contents": [fact]}]
                 })
     except Exception:
