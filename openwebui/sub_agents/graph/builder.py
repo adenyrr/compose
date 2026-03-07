@@ -15,6 +15,7 @@ from typing import Callable
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg_pool import AsyncConnectionPool
 
 from graph.state import AlyxState
 from graph.supervisor import route
@@ -93,8 +94,12 @@ async def build_graph(db_url: str, models: dict | None = None):
     for name in _AGENT_MAP:
         builder.add_edge(name, END)
 
-    # Checkpointer PostgreSQL
-    checkpointer = AsyncPostgresSaver.from_conn_string(db_url)
+    # Checkpointer PostgreSQL via pool de connexions persistant
+    pool = AsyncConnectionPool(conninfo=db_url, max_size=20, open=False)
+    await pool.open()
+    checkpointer = AsyncPostgresSaver(pool)
     await checkpointer.setup()
 
-    return builder.compile(checkpointer=checkpointer)
+    graph = builder.compile(checkpointer=checkpointer)
+    # Retourner le pool pour maintenir les connexions vivantes
+    return graph, pool

@@ -2,7 +2,7 @@
 title: Alyx
 author: adenyrr
 version: 1.3.0
-requirements: langgraph>=0.2, langchain-core>=0.3, langchain-openai>=0.2, langgraph-checkpoint-postgres, psycopg, httpx>=0.27, mcp, openai>=1.0, pydantic>=2.0
+requirements: langgraph>=0.2, langchain-core>=0.3, langchain-openai>=0.2, langgraph-checkpoint-postgres, psycopg, psycopg-pool, httpx>=0.27, mcp, openai>=1.0, pydantic>=2.0
 """
 
 """
@@ -22,6 +22,7 @@ Flux d'un message :
 import asyncio
 import os
 import sys
+import threading
 from typing import Generator
 
 # Garantit que graph/, agents/, tools/ sont importables depuis /app/pipelines/
@@ -145,10 +146,27 @@ class Pipeline:
         self.name = "Alyx"
         self.valves = self.Valves()
         self._graph = None
+        self._pool = None
+        # Loop persistant dans un thread dédié — toutes les ops async partagent le même loop
+        # pour que les connexions psycopg (liées à leur loop) restent valides.
+        self._loop = asyncio.new_event_loop()
+        threading.Thread(
+            target=self._loop.run_forever,
+            daemon=True,
+            name="alyx-async",
+        ).start()
 
     def on_valves_updated(self):
         """Invalide le graphe pour forcer un rebuild avec les nouveaux paramètres."""
+        old_pool = self._pool
         self._graph = None
+        self._pool = None
+        if old_pool is not None:
+            asyncio.run_coroutine_threadsafe(old_pool.close(), self._loop)
+
+    def _run_sync(self, coro, timeout: int = 300):
+        """Exécute une coroutine dans le loop persistant depuis un thread synchrone."""
+        return asyncio.run_coroutine_threadsafe(coro, self._loop).result(timeout=timeout)
 
     def _ensure_graph(self):
         """Initialise le graphe LangGraph une fois (lazy)."""
@@ -168,11 +186,7 @@ class Pipeline:
             "image_gen":  self.valves.model_image_gen,
             "rag":        self.valves.model_rag,
         }
-        loop = asyncio.new_event_loop()
-        try:
-            self._graph = loop.run_until_complete(build_graph(self.valves.db_url, models))
-        finally:
-            loop.close()
+        self._graph, self._pool = self._run_sync(build_graph(self.valves.db_url, models))
         return self._graph
 
     def pipe(
@@ -184,8 +198,8 @@ class Pipeline:
     ) -> Generator[str, None, None]:
         """
         Point d'entrée synchrone (Generator) exigé par le framework Pipelines.
-        Le graphe LangGraph (async) est exécuté dans un event loop éphémère,
-        puis la synthèse est streamée via le client OpenAI sync.
+        Toutes les opérations async s'exécutent dans le loop persistant de l'instance
+        via run_coroutine_threadsafe, garantissant que les connexions psycopg restent valides.
         """
 
         # 1. Préparer l'état initial
@@ -205,7 +219,7 @@ class Pipeline:
             "artifacts": [],
         }
 
-        # 2. Exécuter le graphe (supervisor + agents) — async dans un loop dédié
+        # 2. Exécuter le graphe (supervisor + agents) dans le loop persistant
         try:
             graph = self._ensure_graph()
         except Exception as exc:
@@ -215,16 +229,13 @@ class Pipeline:
         agent_outputs: dict[str, str] = {}
         artifacts: list[dict] = []
 
-        loop = asyncio.new_event_loop()
         try:
-            agent_outputs, artifacts = loop.run_until_complete(
+            agent_outputs, artifacts = self._run_sync(
                 self._run_graph(graph, initial_state, config)
             )
         except Exception as exc:
             yield f"[Erreur lors de l'exécution : {exc}]"
             return
-        finally:
-            loop.close()
 
         # 3. Synthèse finale streamée par Alyx (client sync OpenAI)
         synthesis_context = _build_synthesis_context(agent_outputs, artifacts)
@@ -264,10 +275,10 @@ class Pipeline:
             if delta.content:
                 yield delta.content
 
-        # 4. Condensation mémoire en arrière-plan (fire-and-forget)
+        # 4. Condensation mémoire en arrière-plan (true fire-and-forget)
         if self.valves.enable_memory_bg:
             try:
-                bg_loop = asyncio.new_event_loop()
+                import agents.memory_agent as memory_mod
                 final_state = {
                     "messages": lc_messages + [HumanMessage(content=user_message)],
                     "images_b64": images_b64,
@@ -275,9 +286,7 @@ class Pipeline:
                     "agent_outputs": agent_outputs,
                     "artifacts": artifacts,
                 }
-                import agents.memory_agent as memory_mod
-                bg_loop.run_until_complete(memory_mod.run_bg(final_state))
-                bg_loop.close()
+                asyncio.run_coroutine_threadsafe(memory_mod.run_bg(final_state), self._loop)
             except Exception:
                 pass  # ne jamais bloquer la réponse pour la mémoire
 
