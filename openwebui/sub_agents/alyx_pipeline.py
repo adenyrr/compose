@@ -128,6 +128,7 @@ class Pipeline:
         # --- Comportement ---
         stream_agent_status: bool = Field(default=True, description="Streamer une ligne de statut avant la réponse (agents invoqués)")
         show_model_footer: bool = Field(default=True, description="Afficher un pied de page après la réponse (modèle + agents)")
+        show_reasoning: bool = Field(default=False, description="Afficher le raisonnement interne du modèle (balises <think> ou champ reasoning_content)")
         enable_memory_bg: bool = Field(default=True, description="Activer la condensation mémoire en arrière-plan")
         # --- Superviseur ---
         supervisor_model: str = Field(default="openrouter/gpt-oss", description="Modèle du superviseur (routage)")
@@ -283,10 +284,7 @@ class Pipeline:
             temperature=self.valves.alyx_temperature,
             stream=True,
         )
-        for chunk in stream:
-            delta = chunk.choices[0].delta
-            if delta.content:
-                yield delta.content
+        yield from self._stream_response(stream, self.valves.show_reasoning)
 
         # 4. Pied de page modèle + agents (optionnel)
         if self.valves.show_model_footer:
@@ -318,6 +316,82 @@ class Pipeline:
                 )
             except Exception:
                 pass  # ne jamais bloquer la réponse pour la mémoire
+
+    @staticmethod
+    def _stream_response(stream, show_reasoning: bool) -> "Generator[str, None, None]":
+        """
+        Wrapper de stream OpenAI qui intercepte le raisonnement du modèle :
+          - Champ delta.reasoning_content  → modèles o-series / LiteLLM
+          - Balises <think>…</think>       → DeepSeek-R1, Qwen3, etc.
+        Si show_reasoning=True  : affiche dans un bloc cité avant la réponse.
+        Si show_reasoning=False : supprime silencieusement.
+        """
+        reasoning_parts: list[str] = []
+        buf = ""
+        in_think = False
+
+        def _flush_reasoning() -> str:
+            block = "".join(reasoning_parts).strip()
+            reasoning_parts.clear()
+            if not block or not show_reasoning:
+                return ""
+            lines = block.splitlines()
+            out = "> 💭 **Raisonnement**\n>\n"
+            out += "\n".join(f"> {ln}" for ln in lines)
+            out += "\n\n"
+            return out
+
+        for chunk in stream:
+            delta = chunk.choices[0].delta
+
+            # Champ reasoning_content (o-series, certains modèles via LiteLLM)
+            rc = getattr(delta, "reasoning_content", None)
+            if rc is None and getattr(delta, "model_extra", None):
+                rc = delta.model_extra.get("reasoning_content")
+            if rc:
+                reasoning_parts.append(rc)
+                continue
+
+            text = delta.content or ""
+            if not text:
+                continue
+
+            buf += text
+            out = ""
+
+            while buf:
+                if in_think:
+                    end = buf.find("</think>")
+                    if end >= 0:
+                        reasoning_parts.append(buf[:end])
+                        buf = buf[end + len("</think>"):]
+                        in_think = False
+                        out += _flush_reasoning()
+                    else:
+                        reasoning_parts.append(buf)
+                        buf = ""
+                else:
+                    start = buf.find("<think>")
+                    if start >= 0:
+                        out += buf[:start]
+                        buf = buf[start + len("<think>"):]
+                        in_think = True
+                    else:
+                        out += buf
+                        buf = ""
+
+            if out:
+                yield out
+
+        # Vider le buffer restant (cas sans </think> de clôture)
+        if buf and not in_think:
+            yield buf
+
+        # reasoning_content depuis le champ delta (sans <think>) — yield à la fin
+        if reasoning_parts:
+            flushed = _flush_reasoning()
+            if flushed:
+                yield flushed
 
     @staticmethod
     async def _run_graph(graph, initial_state: dict, config: dict):
