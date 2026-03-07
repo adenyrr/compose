@@ -106,6 +106,9 @@ async def build_graph(db_url: str, models: dict | None = None):
                 min_size=2,
                 max_size=20,
                 open=False,
+                # autocommit requis par LangGraph : CREATE INDEX CONCURRENTLY et
+                # les opérations de checkpoint ne peuvent pas tourner dans une transaction.
+                kwargs={"autocommit": True, "prepare_threshold": 0},
             )
             await pool.open(wait=True, timeout=10.0)
             checkpointer = AsyncPostgresSaver(pool)
