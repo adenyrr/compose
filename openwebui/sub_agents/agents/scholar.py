@@ -23,9 +23,10 @@ _MODEL = "openrouter/gpt-oss"
 _LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1")
 _LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
 
-_SYSTEM = """\
+_SYSTEM_TEMPLATE = """\
 You are an academic research specialist. Use the provided tool results to answer scientific questions.
 Always cite DOIs, authors, and publication years when available.
+Today's date: {current_date}. Prioritize the most recent publications; clearly note when articles are older than 2 years.
 Prioritize peer-reviewed sources. Reply in English with structured markdown.
 """
 
@@ -33,6 +34,7 @@ Prioritize peer-reviewed sources. Reply in English with structured markdown.
 async def run(state: "AlyxState", model: str | None = None) -> dict:
     messages = state.get("messages", [])
     user_text = _last_user_message(messages)
+    current_date = state.get("current_date", "")
 
     # LLM créé en premier — utilisé pour l'extraction de mots-clés ET la synthèse
     llm = ChatOpenAI(
@@ -74,8 +76,9 @@ async def run(state: "AlyxState", model: str | None = None) -> dict:
         f"## Sequential reasoning\n{reasoning}".strip()
     )
 
+    system_prompt = _SYSTEM_TEMPLATE.format(current_date=current_date or "unknown")
     response = await llm.ainvoke([
-        SystemMessage(content=_SYSTEM),
+        SystemMessage(content=system_prompt),
         HumanMessage(content=f"{context}\n\nUser question: {user_text}"),
     ])
 

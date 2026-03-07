@@ -1,9 +1,9 @@
 """
-Client Playwright — connexion MCP SSE directe au service playwright.
+Client Playwright — connexion MCP Streamable HTTP au service playwright.
 
 Le service playwright (mcr.microsoft.com/playwright/mcp) expose un serveur MCP
-via SSE sur http://playwright:8931/sse. Il est connecté directement par OpenWebUI
-comme outil natif fetch — and from the pipeline we connect to it the same way.
+via le transport Streamable HTTP (POST /) — transport par défaut depuis playwright-mcp v0.0.20.
+L'ancien transport SSE (GET /sse) n'est plus utilisé.
 
 Outils principaux :
   browser_navigate(url)     — navigue vers une URL
@@ -15,12 +15,12 @@ from __future__ import annotations
 
 import os
 
-from mcp.client.sse import sse_client
+from mcp.client.streamable_http import streamablehttp_client
 from mcp import ClientSession
 
-_PLAYWRIGHT_SSE_URL = os.environ.get(
+_PLAYWRIGHT_BASE_URL = os.environ.get(
     "PLAYWRIGHT_URL", "http://playwright:8931/sse"
-)
+).removesuffix("/sse").removesuffix("/")  # normalise vers http://playwright:8931
 _TIMEOUT = 30  # secondes
 
 
@@ -34,7 +34,7 @@ async def fetch_url(url: str) -> str:
     Returns:
         Contenu textuel de la page (max 4000 caractères).
     """
-    async with sse_client(_PLAYWRIGHT_SSE_URL) as (read, write):
+    async with streamablehttp_client(_PLAYWRIGHT_BASE_URL) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
             await session.call_tool("browser_navigate", {"url": url})

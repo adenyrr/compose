@@ -11,7 +11,7 @@ Le thread_id correspond au chat_id OpenWebUI pour l'historique multi-tours.
 from __future__ import annotations
 
 import inspect
-from typing import Callable
+from typing import Callable, Optional
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END
@@ -55,7 +55,7 @@ def _make_node(fn: Callable, model: str | None) -> Callable:
     """
     _pass_config = "config" in inspect.signature(fn).parameters
 
-    async def _node(state: AlyxState, config: RunnableConfig | None = None) -> dict:
+    async def _node(state: AlyxState, config: Optional[RunnableConfig] = None) -> dict:
         if _pass_config:
             return await fn(state, config=config, model=model)
         return await fn(state, model=model)

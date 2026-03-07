@@ -122,7 +122,8 @@ async def route(state: "AlyxState", model: str | None = None) -> "AlyxState":
             break
 
     images_note = f"\n[{len(images_b64)} image(s) attached]" if images_b64 else ""
-    routing_prompt = f"{user_text}{images_note}"
+    date_note = f"\n[Today: {state.get('current_date', '')}]" if state.get("current_date") else ""
+    routing_prompt = f"{user_text}{images_note}{date_note}"
 
     llm = ChatOpenAI(
         model=model or _MODEL,

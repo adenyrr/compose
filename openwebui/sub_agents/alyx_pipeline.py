@@ -23,6 +23,7 @@ import asyncio
 import os
 import sys
 import threading
+from datetime import datetime
 from typing import Generator
 
 # Garantit que graph/, agents/, tools/ sont importables depuis /app/pipelines/
@@ -58,9 +59,11 @@ _AGENT_ICONS = {
     "rag":       "📚 RAG",
 }
 
-_ALYX_SYSTEM = """\
+_ALYX_SYSTEM_TEMPLATE = """\
 Tu es Alyx, une assistante IA conversationnelle intelligente, chaleureuse et précise.
 Tu t'exprimes EXCLUSIVEMENT en français, quelles que soient la langue ou la formulation de l'utilisateur.
+
+Date du jour : {current_date}
 
 Tu orchestres des agents spécialisés qui travaillent en arrière-plan pour toi.
 Quand leurs résultats te sont fournis, intègre-les naturellement dans ta réponse sans mentionner
@@ -76,16 +79,18 @@ RÈGLE ABSOLUE — Réponses directes et complètes :
     en précisant que les données fraîches peuvent nécessiter une vérification en ligne.
   - Ne génère JAMAIS de réponse en deux étapes ni de promesses de résultat futur.
 
-Directives de contenu :
-  - Réponds toujours en français, de façon fluide et naturelle
-  - Sois concise pour les réponses simples, détaillée pour les sujets complexes
-  - Si aucun agent spécialisé n'a été invoqué, réponds directement sans préambule
-
 Artifacts (OBLIGATOIRE) :
+  - Tu ne génères JAMAIS toi-même des blocs de code ```html, ```javascript ou ```python.
+    L'agent DEV est le SEUL producteur d'artifacts. Alyx synthétise et présente ; elle ne code pas.
   - Si un agent a fourni un bloc ```html, ```javascript ou ```python, REPRODUIS-LE INTÉGRALEMENT
     dans ta réponse, sans le modifier, raccourcir ou résumer.
   - Ne paraphrase jamais un artifact : inclus le bloc de code complet tel quel.
   - Si une image a été générée (lien markdown ![...](url)), inclus le lien tel quel.
+
+Directives de contenu :
+  - Réponds toujours en français, de façon fluide et naturelle
+  - Sois concise pour les réponses simples, détaillée pour les sujets complexes
+  - Si aucun agent spécialisé n'a été invoqué, réponds directement sans préambule
 
 Sources et citations (OBLIGATOIRE) :
   - Cite toujours tes sources avec des liens Markdown quand disponibles : [Titre](url)
@@ -253,6 +258,9 @@ class Pipeline:
         lc_messages = _convert_messages(messages)
         images_b64 = _extract_images_b64(messages)
 
+        # Date courante injectée dans l'état — lisible par tous les agents
+        current_date = datetime.now().strftime("%A %d %B %Y").lower()
+
         chat_id = body.get("chat_id", body.get("session_id", "default"))
         config = {"configurable": {
             "thread_id": chat_id,
@@ -262,6 +270,7 @@ class Pipeline:
         initial_state = {
             "messages": lc_messages,
             "images_b64": images_b64,
+            "current_date": current_date,
             "routing": [],
             "agent_outputs": {},
             "artifacts": [],
@@ -303,7 +312,9 @@ class Pipeline:
             if labels:
                 yield f"> *Agents : {labels}*\n\n"
 
-        synth_messages = [{"role": "system", "content": _ALYX_SYSTEM}]
+        synth_messages = [{"role": "system", "content": _ALYX_SYSTEM_TEMPLATE.format(
+            current_date=datetime.now().strftime("%A %d %B %Y"),
+        )}]
         # Historique récent
         for m in messages[-self.valves.history_messages:]:
             synth_messages.append({"role": m.get("role", "user"), "content": m.get("content", "")})

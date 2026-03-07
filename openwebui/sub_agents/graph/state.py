@@ -36,6 +36,9 @@ class AlyxState(TypedDict):
     # Images base64 extraites du message courant par la pipeline
     images_b64: list[str]
 
+    # Date courante injectée par la pipeline (ex: "samedi 7 mars 2026")
+    current_date: str
+
     # Liste des agents sélectionnés par le superviseur pour ce tour
     routing: list[str]
 

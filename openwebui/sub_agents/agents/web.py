@@ -25,10 +25,11 @@ _MODEL = "openrouter/gpt-oss"
 _LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1")
 _LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
 
-_SYSTEM = """\
+_SYSTEM_TEMPLATE = """\
 You are a web research assistant. You have access to a real Chromium browser via Playwright.
 Use the provided browser results to answer questions about web pages, news, current events, or online content.
 Summarize findings accurately, quote relevant excerpts, and include source URLs.
+Today's date: {current_date}. Prioritize the most recent content available.
 Reply in English.
 """
 
@@ -36,8 +37,12 @@ Reply in English.
 async def run(state: "AlyxState", model: str | None = None) -> dict:
     messages = state.get("messages", [])
     user_text = _last_user_message(messages)
+    current_date = state.get("current_date", "")
 
-    # Navigation via playwright MCP SSE (outil natif OpenWebUI)
+    # Enrichir la requête avec la date pour favoriser les résultats récents
+    search_query = f"{user_text} {current_date[:7]}" if current_date else user_text
+
+    # Navigation via playwright MCP Streamable HTTP
     browser_result = ""
     try:
         url = _extract_url(user_text)
@@ -45,9 +50,11 @@ async def run(state: "AlyxState", model: str | None = None) -> dict:
             browser_result = await fetch_url(url)
             browser_result = f"Page: {url}\n{browser_result}"
         else:
-            browser_result = await search_web(user_text)
+            browser_result = await search_web(search_query)
     except Exception as exc:
         browser_result = f"Browser navigation failed: {exc}"
+
+    system_prompt = _SYSTEM_TEMPLATE.format(current_date=current_date or "unknown")
 
     llm = ChatOpenAI(
         model=model or _MODEL,
@@ -58,7 +65,7 @@ async def run(state: "AlyxState", model: str | None = None) -> dict:
 
     prompt = f"## Browser result\n{browser_result}\n\nUser question: {user_text}"
     response = await llm.ainvoke([
-        SystemMessage(content=_SYSTEM),
+        SystemMessage(content=system_prompt),
         HumanMessage(content=prompt),
     ])
 
