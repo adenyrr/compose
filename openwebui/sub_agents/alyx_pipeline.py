@@ -169,9 +169,21 @@ class Pipeline:
         return asyncio.run_coroutine_threadsafe(coro, self._loop).result(timeout=timeout)
 
     def _ensure_graph(self):
-        """Initialise le graphe LangGraph une fois (lazy)."""
+        """Initialise le graphe LangGraph une fois (lazy).
+
+        On purge graph.builder (et les agents/tools) du cache sys.modules avant
+        chaque (re-)build, pour que les modifications sur disque soient toujours
+        prises en compte sans redémarrer le container.
+        """
         if self._graph is not None:
             return self._graph
+
+        # Invalider le cache des sous-modules Alyx pour forcer une relecture disque
+        _submodule_prefixes = ("graph.", "agents.", "tools.")
+        for key in list(sys.modules):
+            if any(key == p.rstrip(".") or key.startswith(p) for p in _submodule_prefixes):
+                del sys.modules[key]
+
         from graph.builder import build_graph
         models = {
             "supervisor": self.valves.supervisor_model,

@@ -15,6 +15,7 @@ from typing import Callable
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.checkpoint.memory import MemorySaver
 from psycopg_pool import AsyncConnectionPool
 
 from graph.state import AlyxState
@@ -95,16 +96,32 @@ async def build_graph(db_url: str, models: dict | None = None):
         builder.add_edge(name, END)
 
     # Checkpointer PostgreSQL via pool de connexions persistant
-    pool = AsyncConnectionPool(
-        conninfo=db_url,
-        min_size=2,
-        max_size=20,
-        open=False,
-    )
-    await pool.open(wait=True)
-    checkpointer = AsyncPostgresSaver(pool)
-    await checkpointer.setup()
+    # Timeout court (10s) pour échouer vite si la DB est inaccessible.
+    # Fallback MemorySaver si db_url est vide ou la DB inexistante.
+    pool = None
+    if db_url:
+        try:
+            pool = AsyncConnectionPool(
+                conninfo=db_url,
+                min_size=2,
+                max_size=20,
+                open=False,
+            )
+            await pool.open(wait=True, timeout=10.0)
+            checkpointer = AsyncPostgresSaver(pool)
+            await checkpointer.setup()
+        except Exception as exc:
+            if pool is not None:
+                await pool.close()
+                pool = None
+            raise RuntimeError(
+                f"Impossible d'ouvrir la base PostgreSQL '{db_url}' : {exc}\n"
+                "Vérifie que la base 'langgraph' existe : "
+                "docker exec openwebui-postgres psql -U openwebui -c "
+                "\"CREATE DATABASE langgraph; GRANT ALL PRIVILEGES ON DATABASE langgraph TO openwebui;\""
+            ) from exc
+    else:
+        checkpointer = MemorySaver()
 
     graph = builder.compile(checkpointer=checkpointer)
-    # Retourner le pool pour maintenir les connexions vivantes
     return graph, pool
