@@ -20,7 +20,9 @@ Flux d'un message :
 """
 
 import asyncio
+import logging
 import os
+import queue
 import sys
 import threading
 from datetime import datetime
@@ -58,6 +60,11 @@ _AGENT_ICONS = {
     "image_gen": "🎨 ImageGen",
     "rag":       "📚 RAG",
 }
+
+_LOGGER = logging.getLogger(__name__)
+
+# Sentinel signalant la fin du stream dans le queue bridge
+_DONE = object()
 
 _ALYX_SYSTEM_TEMPLATE = """\
 Tu es Alyx, une assistante IA conversationnelle intelligente, chaleureuse et précise.
@@ -157,15 +164,15 @@ class Pipeline:
         realtime_status: bool = Field(default=True, description="Émettre des statuts OpenWebUI en temps réel (quel agent travaille)")
         enable_memory_bg: bool = Field(default=True, description="Activer la condensation mémoire en arrière-plan")
         # --- Superviseur ---
-        supervisor_model: str = Field(default="openrouter/gpt-oss", description="Modèle du superviseur (routage)")
+        supervisor_model: str = Field(default="openrouter/qwen3.5-flash", description="Modèle du superviseur (routage)")
         # --- Modèles agents ---
         model_vision: str = Field(default="openrouter/qwen3.5-flash", description="Modèle Vision")
         model_scholar: str = Field(default="openrouter/gpt-oss", description="Modèle Scholar")
         model_dev: str = Field(default="openrouter/kimi-k2.5", description="Modèle Dev (code + artifacts)")
         model_web: str = Field(default="openrouter/gpt-oss", description="Modèle Web")
-        model_media: str = Field(default="openrouter/gpt-oss", description="Modèle Media")
-        model_data: str = Field(default="openrouter/gpt-oss", description="Modèle Data")
-        model_memory: str = Field(default="openrouter/gpt-oss", description="Modèle Memory")
+        model_media: str = Field(default="openrouter/qwen3.5-flash", description="Modèle Media")
+        model_data: str = Field(default="openrouter/qwen3.5-flash", description="Modèle Data")
+        model_memory: str = Field(default="openrouter/qwen3.5-flash", description="Modèle Memory")
         model_image_gen: str = Field(default="pollinations/flux", description="Modèle ImageGen")
         model_rag: str = Field(default="openrouter/gpt-oss", description="Modèle RAG")
 
@@ -252,9 +259,9 @@ class Pipeline:
                     self._loop,
                 )
 
+        _emit("🔍 Analyse du message…")
+
         # 1. Préparer l'état initial
-        from langchain_core.messages import HumanMessage  # lazy
-        from openai import OpenAI  # lazy
         lc_messages = _convert_messages(messages)
         images_b64 = _extract_images_b64(messages)
 
@@ -276,8 +283,7 @@ class Pipeline:
             "artifacts": [],
         }
 
-        # 2. Exécuter le graphe (supervisor + agents) dans le loop persistant
-        _emit("🔍 Analyse du message…")
+        # 2. Lancer la coroutine graphe+synthèse et lire les tokens depuis la queue
         try:
             graph = self._ensure_graph()
         except Exception as exc:
@@ -285,101 +291,161 @@ class Pipeline:
             yield f"[Erreur d'initialisation du graphe : {exc}]"
             return
 
+        q: queue.Queue = queue.Queue()
+        asyncio.run_coroutine_threadsafe(
+            self._run_and_synthesize_async(
+                q, graph, initial_state, config,
+                __event_emitter__, self._models,
+                messages, lc_messages, images_b64, user_message,
+            ),
+            self._loop,
+        )
+
+        while True:
+            token = q.get()
+            if token is _DONE:
+                break
+            yield token
+
+    async def _run_and_synthesize_async(
+        self,
+        q: "queue.Queue",
+        graph,
+        initial_state: dict,
+        config: dict,
+        event_emitter,
+        models: dict,
+        messages: list[dict],
+        lc_messages: list,
+        images_b64: list[str],
+        user_message: str,
+    ) -> None:
+        """Coroutine unique : graphe → synthèse → tokens dans la queue."""
+        from openai import AsyncOpenAI  # lazy
+
+        async def _emit(description: str, done: bool = False) -> None:
+            if event_emitter and self.valves.realtime_status:
+                try:
+                    await event_emitter({"type": "status", "data": {"description": description, "done": done}})
+                except Exception:
+                    pass
+
         agent_outputs: dict[str, str] = {}
         artifacts: list[dict] = []
-
         try:
-            emitter = __event_emitter__ if self.valves.realtime_status else None
-            agent_outputs, artifacts = self._run_sync(
-                self._run_graph(graph, initial_state, config, emitter, models=self._models)
+            # Exécuter le graphe
+            agent_outputs, artifacts = await self._run_graph(
+                graph, initial_state, config, event_emitter, models=models
             )
-        except Exception as exc:
-            _emit("Erreur lors de l'exécution", done=True)
-            yield f"[Erreur lors de l'exécution : {exc}]"
-            return
 
-        # 3. Synthèse finale streamée par Alyx (client sync OpenAI)
-        _emit("✍️ Rédaction de la réponse…")
-        synthesis_context = _build_synthesis_context(agent_outputs, artifacts)
-
-        # Ligne de statut agents (optionnelle)
-        if self.valves.stream_agent_status and agent_outputs:
-            labels = " · ".join(
-                _AGENT_ICONS.get(name, name)
-                for name in agent_outputs
-                if agent_outputs[name] and agent_outputs[name].strip()
-            )
-            if labels:
-                yield f"> *Agents : {labels}*\n\n"
-
-        synth_messages = [{"role": "system", "content": _ALYX_SYSTEM_TEMPLATE.format(
-            current_date=datetime.now().strftime("%A %d %B %Y"),
-        )}]
-        # Historique récent
-        for m in messages[-self.valves.history_messages:]:
-            synth_messages.append({"role": m.get("role", "user"), "content": m.get("content", "")})
-
-        if synthesis_context:
-            synth_messages.append({
-                "role": "user",
-                "content": f"[Résultats des agents spécialisés]\n{synthesis_context}\n\n[Message original de l'utilisateur]\n{user_message}",
-            })
-        else:
-            synth_messages.append({"role": "user", "content": user_message})
-
-        client = OpenAI(base_url=self.valves.litellm_url, api_key=self.valves.litellm_api_key)
-        stream = client.chat.completions.create(
-            model=self.valves.alyx_model,
-            messages=synth_messages,
-            temperature=self.valves.alyx_temperature,
-            stream=True,
-        )
-        yield from self._stream_response(stream, self.valves.show_reasoning)
-        _emit("", done=True)
-
-        # 4. Pied de page modèle + agents (optionnel)
-        if self.valves.show_model_footer:
-            # Table de correspondance agent → modèle configuré via les valves
-            _agent_models = {
-                "vision":    self.valves.model_vision,
-                "scholar":   self.valves.model_scholar,
-                "dev":       self.valves.model_dev,
-                "web":       self.valves.model_web,
-                "media":     self.valves.model_media,
-                "data":      self.valves.model_data,
-                "memory":    self.valves.model_memory,
-                "image_gen": self.valves.model_image_gen,
-                "rag":       self.valves.model_rag,
-            }
-            agent_parts = [
-                f"{_AGENT_ICONS.get(name, name)} `{_agent_models.get(name, '?')}`"
-                for name in agent_outputs
-                if agent_outputs[name] and agent_outputs[name].strip()
-            ]
-            synth_part = f"✍️ `{self.valves.alyx_model}`"
-            if agent_parts:
-                footer = "\n\n---\n*" + "  ·  ".join(agent_parts) + "  ·  " + synth_part + "*"
-            else:
-                footer = f"\n\n---\n*{synth_part}*"
-            yield footer
-
-        # 5. Condensation mémoire en arrière-plan (true fire-and-forget)
-        if self.valves.enable_memory_bg:
-            try:
-                import agents.memory_agent as memory_mod
-                final_state = {
-                    "messages": lc_messages + [HumanMessage(content=user_message)],
-                    "images_b64": images_b64,
-                    "routing": [],
-                    "agent_outputs": agent_outputs,
-                    "artifacts": artifacts,
-                }
-                asyncio.run_coroutine_threadsafe(
-                    memory_mod.run_bg(final_state, model=self.valves.model_memory),
-                    self._loop,
+            # Court-circuit : aucun agent invoqué → Alyx répond directement
+            if not agent_outputs and not artifacts:
+                await _emit("✍️ Réponse directe…")
+                alyx_system = _ALYX_SYSTEM_TEMPLATE.format(
+                    current_date=datetime.now().strftime("%A %d %B %Y")
                 )
-            except Exception:
-                pass  # ne jamais bloquer la réponse pour la mémoire
+                direct_messages = [{"role": "system", "content": alyx_system}]
+                for m in messages[-self.valves.history_messages:]:
+                    direct_messages.append({"role": m.get("role", "user"), "content": m.get("content", "")})
+                direct_messages.append({"role": "user", "content": user_message})
+                client = AsyncOpenAI(base_url=self.valves.litellm_url, api_key=self.valves.litellm_api_key)
+                stream = await client.chat.completions.create(
+                    model=self.valves.alyx_model,
+                    messages=direct_messages,
+                    temperature=self.valves.alyx_temperature,
+                    stream=True,
+                )
+                async for token in self._astream_response(stream, self.valves.show_reasoning):
+                    q.put(token)
+                await _emit("", done=True)
+                if self.valves.show_model_footer:
+                    q.put(f"\n\n---\n*✍️ `{self.valves.alyx_model}`*")
+                return
+
+            # Ligne de statut agents (optionnelle)
+            if self.valves.stream_agent_status and agent_outputs:
+                labels = " · ".join(
+                    _AGENT_ICONS.get(name, name)
+                    for name in agent_outputs
+                    if agent_outputs[name] and agent_outputs[name].strip()
+                )
+                if labels:
+                    q.put(f"> *Agents : {labels}*\n\n")
+
+            # Synthèse finale
+            await _emit("✍️ Rédaction de la réponse…")
+            synthesis_context = _build_synthesis_context(agent_outputs, artifacts)
+            synth_messages = [{"role": "system", "content": _ALYX_SYSTEM_TEMPLATE.format(
+                current_date=datetime.now().strftime("%A %d %B %Y"),
+            )}]
+            for m in messages[-self.valves.history_messages:]:
+                synth_messages.append({"role": m.get("role", "user"), "content": m.get("content", "")})
+            if synthesis_context:
+                synth_messages.append({
+                    "role": "user",
+                    "content": f"[Résultats des agents spécialisés]\n{synthesis_context}\n\n[Message original de l'utilisateur]\n{user_message}",
+                })
+            else:
+                synth_messages.append({"role": "user", "content": user_message})
+
+            client = AsyncOpenAI(base_url=self.valves.litellm_url, api_key=self.valves.litellm_api_key)
+            stream = await client.chat.completions.create(
+                model=self.valves.alyx_model,
+                messages=synth_messages,
+                temperature=self.valves.alyx_temperature,
+                stream=True,
+            )
+            async for token in self._astream_response(stream, self.valves.show_reasoning):
+                q.put(token)
+            await _emit("", done=True)
+
+            # Pied de page
+            if self.valves.show_model_footer:
+                _agent_models = {
+                    "vision":    self.valves.model_vision,
+                    "scholar":   self.valves.model_scholar,
+                    "dev":       self.valves.model_dev,
+                    "web":       self.valves.model_web,
+                    "media":     self.valves.model_media,
+                    "data":      self.valves.model_data,
+                    "memory":    self.valves.model_memory,
+                    "image_gen": self.valves.model_image_gen,
+                    "rag":       self.valves.model_rag,
+                }
+                agent_parts = [
+                    f"{_AGENT_ICONS.get(name, name)} `{_agent_models.get(name, '?')}`"
+                    for name in agent_outputs
+                    if agent_outputs[name] and agent_outputs[name].strip()
+                ]
+                synth_part = f"✍️ `{self.valves.alyx_model}`"
+                if agent_parts:
+                    footer = "\n\n---\n*" + "  ·  ".join(agent_parts) + "  ·  " + synth_part + "*"
+                else:
+                    footer = f"\n\n---\n*{synth_part}*"
+                q.put(footer)
+
+        except Exception as exc:
+            await _emit("Erreur lors de l'exécution", done=True)
+            q.put(f"[Erreur : {exc}]")
+        finally:
+            # Condensation mémoire en arrière-plan (fire-and-forget dans le même loop)
+            if self.valves.enable_memory_bg:
+                try:
+                    import agents.memory_agent as memory_mod
+                    from langchain_core.messages import HumanMessage
+                    final_state = {
+                        "messages": lc_messages + [HumanMessage(content=user_message)],
+                        "images_b64": images_b64,
+                        "routing": [],
+                        "agent_outputs": agent_outputs,
+                        "artifacts": artifacts,
+                    }
+                    asyncio.ensure_future(
+                        memory_mod.run_bg(final_state, model=self.valves.model_memory)
+                    )
+                except Exception as exc:
+                    _LOGGER.warning("Failed to schedule memory background task: %s", exc)
+            q.put(_DONE)
 
     @staticmethod
     def _stream_response(stream, show_reasoning: bool) -> "Generator[str, None, None]":
@@ -452,6 +518,73 @@ class Pipeline:
             yield buf
 
         # reasoning_content depuis le champ delta (sans <think>) — yield à la fin
+        if reasoning_parts:
+            flushed = _flush_reasoning()
+            if flushed:
+                yield flushed
+
+    @staticmethod
+    async def _astream_response(stream, show_reasoning: bool):
+        """Version async de _stream_response, pour AsyncOpenAI streaming."""
+        reasoning_parts: list[str] = []
+        buf = ""
+        in_think = False
+
+        def _flush_reasoning() -> str:
+            block = "".join(reasoning_parts).strip()
+            reasoning_parts.clear()
+            if not block or not show_reasoning:
+                return ""
+            lines = block.splitlines()
+            out = "> 💭 **Raisonnement**\n>\n"
+            out += "\n".join(f"> {ln}" for ln in lines)
+            out += "\n\n"
+            return out
+
+        async for chunk in stream:
+            delta = chunk.choices[0].delta
+
+            rc = getattr(delta, "reasoning_content", None)
+            if rc is None and getattr(delta, "model_extra", None):
+                rc = delta.model_extra.get("reasoning_content")
+            if rc:
+                reasoning_parts.append(rc)
+                continue
+
+            text = delta.content or ""
+            if not text:
+                continue
+
+            buf += text
+            out = ""
+
+            while buf:
+                if in_think:
+                    end = buf.find("</think>")
+                    if end >= 0:
+                        reasoning_parts.append(buf[:end])
+                        buf = buf[end + len("</think>"):]
+                        in_think = False
+                        out += _flush_reasoning()
+                    else:
+                        reasoning_parts.append(buf)
+                        buf = ""
+                else:
+                    start = buf.find("<think>")
+                    if start >= 0:
+                        out += buf[:start]
+                        buf = buf[start + len("<think>"):]
+                        in_think = True
+                    else:
+                        out += buf
+                        buf = ""
+
+            if out:
+                yield out
+
+        if buf and not in_think:
+            yield buf
+
         if reasoning_parts:
             flushed = _flush_reasoning()
             if flushed:

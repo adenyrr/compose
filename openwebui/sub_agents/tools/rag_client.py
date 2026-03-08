@@ -14,19 +14,27 @@ _QDRANT_URI = os.environ.get("QDRANT_URI", "http://qdrant:6333")
 _QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", "")
 _LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1")
 _LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
-_EMBEDDING_MODEL = "text-embedding-3-small"  # modèle disponible via LiteLLM/OpenRouter
+_EMBEDDING_MODEL = os.environ.get("RAG_EMBEDDING_MODEL", "text-embedding-3-small")
 _TIMEOUT = 30.0
 
 
 async def _embed(text: str) -> list[float]:
     """Génère un vecteur d'embedding pour un texte via LiteLLM."""
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        resp = await client.post(
-            f"{_LITELLM_URL}/embeddings",
-            headers={"Authorization": f"Bearer {_LITELLM_API_KEY}"},
-            json={"model": _EMBEDDING_MODEL, "input": text},
-        )
-        resp.raise_for_status()
+        try:
+            resp = await client.post(
+                f"{_LITELLM_URL}/embeddings",
+                headers={"Authorization": f"Bearer {_LITELLM_API_KEY}"},
+                json={"model": _EMBEDDING_MODEL, "input": text},
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            detail = exc.response.text[:500]
+            raise RuntimeError(
+                f"Embedding request failed for model '{_EMBEDDING_MODEL}'. "
+                "Configure RAG_EMBEDDING_MODEL and ensure the model is declared in LiteLLM. "
+                f"Response: {detail}"
+            ) from exc
         return resp.json()["data"][0]["embedding"]
 
 

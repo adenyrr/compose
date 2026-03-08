@@ -108,6 +108,7 @@ services:
       # Qdrant
       QDRANT_URI: "http://qdrant:6333"
       QDRANT_API_KEY: "${QDRANT_API_KEY}"
+      RAG_EMBEDDING_MODEL: "${RAG_EMBEDDING_MODEL:-text-embedding-3-small}"
       # PostgreSQL — base dédiée LangGraph
       DATABASE_URL: "postgresql://${PG_USER:-openwebui}:${PG_PASS}@postgres:5432/langgraph"
       # Open Terminal (bash MCP)
@@ -115,8 +116,8 @@ services:
       OPEN_TERMINAL_API_KEY: "${OPEN_TERMINAL_API_KEY}"
       # Context7 (cloud public)
       CONTEXT7_API_KEY: "${CONTEXT7_API_KEY:-}"
-      # Playwright (outil natif OpenWebUI, connexion MCP SSE directe)
-      PLAYWRIGHT_URL: "http://playwright:8931/sse"
+      # Playwright (outil natif OpenWebUI, MCP Streamable HTTP)
+      PLAYWRIGHT_URL: "http://playwright:8931"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:9099/ || exit 1"]
       interval: 15s
@@ -286,9 +287,9 @@ services:
   # Chromium + serveur MCP intégrés — zéro installation
   # au runtime, contrairement à l'ancienne approche npx.
   #
-  # OpenWebUI se connecte directement via SSE :
+  # OpenWebUI et Alyx se connectent directement via MCP Streamable HTTP :
   #   Admin Panel → Settings → Tools → MCP Servers
-  #   → Ajouter : http://playwright-mcp:8931/sse
+  #   → Ajouter : http://playwright:8931
   # ──────────────────────────────────────────────
 
   playwright:

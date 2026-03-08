@@ -25,12 +25,11 @@ Utilisateur → OpenWebUI :3721
                  ├── LiteLLM :4000/v1     ← tous les modèles LLM (OpenRouter, Pollinations…)
                  └── Pipelines :9099      ← "Alyx" (LangGraph multi-agent)
                           │
-                          └── LangGraph Supervisor (GPT-OSS 120B)
+                            └── LangGraph Supervisor (Qwen 3.5 Flash)
                                 ├─ vision      qwen/qwen3.5-flash     images, OCR
                                 ├─ scholar     GPT-OSS 120B           papers, wikipedia
-                                ├─ coder       kimi-k2.5              artifacts html/js/py
-                                ├─ tech        kimi-k2.5              Context7, bash, skills
-                                ├─ web         GPT-OSS 120B           playwright SSE
+                              ├─ dev         kimi-k2.5              code, artifacts, Context7, bash, skills
+                              ├─ web         GPT-OSS 120B           playwright MCP HTTP
                                 ├─ media       GPT-OSS 120B           youtube, pdf, pandoc
                                 ├─ data        GPT-OSS 120B           calcul, duckdb
                                 ├─ memory      GPT-OSS 120B           knowledge graph MCPO
@@ -41,7 +40,7 @@ Outils (accès depuis Pipelines via clients internes) :
   MCPO :8000     → paper-search, wikipedia, sequential-thinking,
                    youtube-transcript, markitdown, pandoc,
                    calculator, duckdb, memory, git
-  Playwright     → MCP SSE :8931  (outil natif OpenWebUI, accès direct SSE)
+  Playwright     → MCP HTTP :8931  (outil natif OpenWebUI, Streamable HTTP)
   Context7       → cloud public https://mcp.context7.com/mcp
   open-terminal  → bash REST :8000
   Qdrant         → vector DB :6333
@@ -61,7 +60,7 @@ Outils (accès depuis Pipelines via clients internes) :
 | `redis` | `redis:7-alpine` | — | Cache (DB0: OpenWebUI, DB1: LiteLLM) |
 | `qdrant` | `qdrant/qdrant:latest` | — | Vector store (RAG) |
 | `mcpo` | `ghcr.io/open-webui/mcpo:main` | 3722 | Proxy MCP→REST pour les outils |
-| `playwright` | `mcr.microsoft.com/playwright/mcp:latest` | — (interne 8931) | Navigateur Chromium (MCP SSE) |
+| `playwright` | `mcr.microsoft.com/playwright/mcp:latest` | — (interne 8931) | Navigateur Chromium (MCP Streamable HTTP) |
 | `tika` | `apache/tika:latest-full` | — | Parsing documents (PDF, Word…) |
 | `open-terminal` | `ghcr.io/open-webui/open-terminal` | — | Terminal bash sandboxé |
 
@@ -146,13 +145,13 @@ Au premier démarrage, PostgreSQL exécute automatiquement les scripts d'init :
 
 ### 4. Connecter les outils MCP natifs à OpenWebUI
 
-OpenWebUI se connecte directement aux serveurs MCP via SSE :
+OpenWebUI se connecte directement aux serveurs MCP via HTTP :
 
-| Outil | URL SSE |
+| Outil | URL |
 |---|---|
-| Playwright (navigation web) | `http://playwright:8931/sse` |
+| Playwright (navigation web) | `http://playwright:8931` |
 
-**Admin Panel → Settings → Tools → MCP Servers** → ajouter l'URL SSE.
+**Admin Panel → Settings → Tools → MCP Servers** → ajouter l'URL du serveur MCP.
 
 > MCPO expose les autres outils (paper-search, memory, duckdb…) via OpenAPI REST sur
 > `http://mcpo:8000` — configuré automatiquement via `MCP_SERVER_BASE_URL`.
@@ -167,7 +166,7 @@ openwebui/
 ├── example.env               Variables d'environnement (template)
 ├── litellm_config.yaml       Configuration LiteLLM (modèles)
 ├── mcpo_config.json          Configuration MCPO (serveurs MCP)
-├── skills/                   Guides de bibliothèques pour le Tech Agent
+├── skills/                   Guides de bibliothèques pour l'agent Dev
 │   ├── animejs.md
 │   ├── bulma.md
 │   └── … (24 fichiers)
@@ -180,8 +179,7 @@ openwebui/
 │   ├── agents/               10 sous-agents spécialisés
 │   │   ├── vision.py
 │   │   ├── scholar.py
-│   │   ├── coder.py
-│   │   ├── tech.py
+│   │   ├── dev.py
 │   │   ├── web.py
 │   │   ├── media.py
 │   │   ├── data.py
@@ -192,7 +190,7 @@ openwebui/
 │       ├── mcpo_client.py    Client MCPO (outils via REST)
 │       ├── rag_client.py     Client Qdrant (RAG)
 │       ├── context7_client.py Client Context7 (docs bibliothèques)
-│       ├── playwright_client.py Client Playwright (MCP SSE)
+│       ├── playwright_client.py Client Playwright (MCP Streamable HTTP)
 │       └── terminal_client.py  Client open-terminal (bash)
 └── postgres-init/
     ├── 01-create-litellm-db.sql
@@ -229,26 +227,16 @@ La **persistance multi-tours** est assurée par LangGraph via la base `langgraph
 **Invoqué quand** : question scientifique, littérature, études, citations  
 **Outils MCPO** : `paper-search` (14 plateformes : arXiv, PubMed, Semantic Scholar…), `wikipedia`, `sequential-thinking`
 
-### 💻 Coder — `agents/coder.py`
+### ⚙️ Dev — `agents/dev.py`
 **Modèle** : `openrouter/moonshotai/kimi-k2.5`  
-**Invoqué quand** : génération de code, création d'artifacts interactifs  
-**Outils MCPO** : `git`  
-**Artifacts produits** :
-- ` ```html ` → rendu HTML interactif dans OpenWebUI
-- ` ```javascript ` → sandbox JS
-- ` ```python ` → sandbox Pyodide
-- Fichiers téléchargeables (CSV, JSON, config) avec commentaire `# filename: …`
-
-### 🔧 Tech — `agents/tech.py`
-**Modèle** : `openrouter/moonshotai/kimi-k2.5`  
-**Invoqué quand** : utilisation d'une bibliothèque/framework, documentation technique, commandes bash  
-**Sources** : skills locaux (`skills/*.md`), Context7 cloud, terminal bash (open-terminal)  
-**Fonctionnement** : charge les skills correspondant à la bibliothèque mentionnée, interroge Context7 pour la doc officielle en temps réel, peut exécuter des commandes de vérification d'environnement
+**Invoqué quand** : génération de code, création d'artifacts interactifs, documentation technique, commandes bash, visualisations  
+**Sources** : skills locaux (`skills/*.md`), Context7 cloud, terminal bash (open-terminal), outil Git via MCPO  
+**Fonctionnement** : fusion de l'ancien Coder et de l'ancien Tech. L'agent charge les skills correspondant à la bibliothèque mentionnée, interroge Context7 pour la doc officielle en temps réel, peut exécuter des commandes de vérification d'environnement et produire des artifacts HTML/JS/Python.
 
 ### 🌐 Web — `agents/web.py`
 **Modèle** : `openrouter/openai/gpt-oss-120b`  
 **Invoqué quand** : navigation vers une URL, recherche web, actualités  
-**Outil** : Playwright (navigateur Chromium réel, connexion MCP SSE directe sur `http://playwright:8931/sse`)  
+**Outil** : Playwright (navigateur Chromium réel, connexion MCP directe sur `http://playwright:8931`)  
 **Comportement** : si une URL est présente → navigue directement ; sinon → recherche DuckDuckGo
 
 ### 🎬 Media — `agents/media.py`
@@ -283,7 +271,7 @@ La **persistance multi-tours** est assurée par LangGraph via la base `langgraph
 
 ## Skills
 
-Les skills sont des fichiers Markdown dans `skills/` chargés au démarrage par le **Tech Agent**. Ils contiennent des guides d'utilisation détaillés et des exemples de code pour des bibliothèques JavaScript et CSS spécifiques.
+Les skills sont des fichiers Markdown dans `skills/` chargés au démarrage par l'**agent Dev**. Ils contiennent des guides d'utilisation détaillés et des exemples de code pour des bibliothèques JavaScript et CSS spécifiques.
 
 | Fichier | Nom | Cas d'usage |
 |---|---|---|
@@ -321,10 +309,10 @@ Les skills sont des fichiers Markdown dans `skills/` chargés au démarrage par 
 Modifier la constante `_MODEL` en tête de fichier dans `sub_agents/agents/<agent>.py`.  
 Le nom doit correspondre à un `model_name` défini dans `litellm_config.yaml`.
 
-**Exemple** — passer le Coder sur GPT-OSS :
+**Exemple** — passer l'agent Dev sur GPT-OSS :
 
 ```python
-# sub_agents/agents/coder.py
+# sub_agents/agents/dev.py
 _MODEL = "openrouter/gpt-oss"  # au lieu de "openrouter/kimi-k2.5"
 ```
 
@@ -386,7 +374,7 @@ description: Quand utiliser ce skill (déclencheurs, cas d'usage, exclusions).
 Contenu, exemples de code, patterns recommandés…
 ```
 
-Le skill est chargé automatiquement au prochain démarrage du service `pipelines` (ou au redémarrage). Le Tech Agent l'indexera et l'injectera dans son contexte quand la bibliothèque est mentionnée dans la conversation.
+Le skill est chargé automatiquement au prochain démarrage du service `pipelines` (ou au redémarrage). L'agent Dev l'indexera et l'injectera dans son contexte quand la bibliothèque est mentionnée dans la conversation.
 
 ### Ajouter un outil MCPO
 

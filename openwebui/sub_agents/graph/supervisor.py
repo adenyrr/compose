@@ -30,7 +30,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 if TYPE_CHECKING:
     from graph.state import AlyxState
 
-_MODEL = "openrouter/gpt-oss"
+_MODEL = "openrouter/qwen3.5-flash"
 _LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1")
 _LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
 

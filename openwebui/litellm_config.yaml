@@ -34,6 +34,11 @@ model_list:
       model: openrouter/qwen/qwen3.5-flash-02-23
       api_key: os.environ/OPENROUTER_API_KEY
 
+  - model_name: text-embedding-3-small
+    litellm_params:
+      model: openai/text-embedding-3-small
+      api_key: os.environ/OPENAI_API_KEY
+
   - model_name: pollinations/flux
     litellm_params:
       model: openai/klein-large

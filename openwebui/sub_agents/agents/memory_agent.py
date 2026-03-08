@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 from typing import TYPE_CHECKING
 
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
 _MODEL = "openrouter/gpt-oss"
 _LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000/v1")
 _LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
+_LOGGER = logging.getLogger(__name__)
 
 _SYSTEM_RECALL = """\
 You are a memory assistant. Search the knowledge graph for information relevant to the user's question.
@@ -121,8 +123,8 @@ async def run_bg(state: "AlyxState", model: str | None = None) -> None:
             await call_tool("memory", "add_observations", {
                 "observations": [{"entityName": "Alyx-Context", "contents": facts}]
             })
-    except Exception:
-        pass  # Silencieux — ne doit jamais bloquer la réponse principale
+    except Exception as exc:
+        _LOGGER.warning("Memory background condensation failed: %s", exc)
 
 
 def _last_user_message(messages: list) -> str:

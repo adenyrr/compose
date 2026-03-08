@@ -1,10 +1,10 @@
 """
 Web Agent — navigation, scraping et recherche web.
 Modèle : GPT-OSS 120B.
-Outil : playwright MCP (service natif OpenWebUI, connexion SSE directe).
+Outil : playwright MCP (service natif OpenWebUI, transport Streamable HTTP).
 
 Playwright est fourni comme outil natif par le service playwright du compose.
-La connexion se fait via MCP SSE sur http://playwright:8931/sse,
+La connexion se fait directement vers http://playwright:8931,
 évité de passer par MCPO (playwright n'y est pas configuré).
 """
 
@@ -39,8 +39,8 @@ async def run(state: "AlyxState", model: str | None = None) -> dict:
     user_text = _last_user_message(messages)
     current_date = state.get("current_date", "")
 
-    # Enrichir la requête avec la date pour favoriser les résultats récents
-    search_query = f"{user_text} {current_date[:7]}" if current_date else user_text
+    # Enrichir la requête avec la date complète pour favoriser des résultats récents cohérents.
+    search_query = f"{user_text} {current_date}" if current_date else user_text
 
     # Navigation via playwright MCP Streamable HTTP
     browser_result = ""
