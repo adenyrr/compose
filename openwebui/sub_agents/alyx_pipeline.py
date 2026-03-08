@@ -191,8 +191,12 @@ class Pipeline:
             name="alyx-async",
         ).start()
 
-    def on_valves_updated(self):
-        """Invalide le graphe pour forcer un rebuild avec les nouveaux paramètres."""
+    async def on_valves_updated(self):
+        """Invalide le graphe pour forcer un rebuild avec les nouveaux paramètres.
+
+        Déclarée async car OpenWebUI appelle cette méthode avec await.
+        La fermeture du pool postgres est déléguée au loop persistant.
+        """
         old_pool = self._pool
         self._graph = None
         self._pool = None
